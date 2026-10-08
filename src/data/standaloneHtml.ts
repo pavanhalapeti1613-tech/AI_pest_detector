@@ -1,0 +1,635 @@
+export const STANDALONE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSound - ESP32 Field Pest Acoustic Monitor</title>
+  <!-- Tailwind CSS CDN for zero-build ESP32 LittleFS deployment -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .font-mono-nums {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-xs">
+          🌾
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            AgriSound
+            <span id="header-pulse" class="hidden w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+          </h1>
+          <p class="text-xs font-semibold text-slate-500 -mt-0.5">ESP32 Acoustic Field Monitor</p>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="btn-toggle-sound" class="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border bg-emerald-50 text-emerald-800 border-emerald-300 transition-colors">
+          <span id="sound-icon">🔔</span>
+          <span id="sound-label" class="hidden sm:inline">Alert Sound On</span>
+        </button>
+
+        <button id="btn-open-settings" class="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
+          <span id="hw-status-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="hw-status-text" class="font-mono-nums font-semibold">Online</span>
+          <span>⚙️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- CONNECTION ERROR BANNER (HIDDEN WHEN ONLINE) -->
+    <div id="offline-banner" class="hidden bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-950">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-lg shrink-0">⚠️</div>
+        <div>
+          <h3 class="font-bold text-sm text-rose-900">ESP32 Acoustic Sensor Offline</h3>
+          <p class="text-xs text-rose-700 mt-0.5">Cannot reach <code id="offline-ip-label" class="bg-rose-100 px-1 py-0.5 rounded font-mono">http://192.168.1.50</code>. Check local WiFi.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-retry-conn" class="px-3.5 py-1.5 text-xs font-bold bg-white border border-rose-300 rounded-lg text-rose-800 hover:bg-rose-100">Retry</button>
+        <button id="btn-enable-sim" class="px-3.5 py-1.5 text-xs font-bold bg-rose-700 text-white rounded-lg hover:bg-rose-800">Use Simulator</button>
+      </div>
+    </div>
+
+    <!-- QUICK METRICS BAR -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+        <div class="text-xs font-medium text-slate-500">INMP441 Mic</div>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span id="metric-db" class="text-base font-bold font-mono-nums text-slate-900">38.4 dB</span>
+          <span id="metric-hz" class="text-xs text-slate-500 font-mono-nums">· 420 Hz</span>
+        </div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+        <div class="text-xs font-medium text-slate-500">Field Zone</div>
+        <div class="text-sm font-bold text-slate-900 truncate mt-0.5">South Maize Field</div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+        <div class="text-xs font-medium text-slate-500">Battery Level</div>
+        <div class="flex items-baseline gap-1 mt-0.5">
+          <span id="metric-batt" class="text-base font-bold font-mono-nums text-slate-900">4.12V</span>
+          <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1 rounded">Optimal</span>
+        </div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+        <div class="text-xs font-medium text-slate-500">Poll Cadence</div>
+        <div id="metric-ip" class="text-xs font-mono-nums text-slate-700 truncate mt-1">192.168.1.50 · 2s</div>
+      </div>
+    </div>
+
+    <!-- HOME VIEW -->
+    <div id="view-home" class="space-y-6">
+
+      <!-- RECENT DETECTION BANNER (SWITCHES DYNAMICALLY) -->
+      <div id="alert-container">
+        <!-- Will be filled by JS: either Calm Green or Urgent Pest Card -->
+      </div>
+
+      <!-- RECENT HISTORY PREVIEW -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>📋</span> Detection History
+          </h3>
+          <span id="history-count" class="text-xs font-medium text-slate-500">0 past detections</span>
+        </div>
+
+        <div id="history-list" class="divide-y divide-slate-100">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PEST DETAIL VIEW (SHOWN WHEN FARMER CLICKS 'VIEW TREATMENT & DETAILS') -->
+    <div id="view-detail" class="hidden space-y-6">
+      <button id="btn-back-home" class="px-3.5 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50">
+        &larr; Back to Field Monitor
+      </button>
+
+      <!-- Identification Card -->
+      <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+          <div>
+            <span id="detail-urgency-badge" class="px-2.5 py-0.5 rounded text-xs font-bold uppercase bg-amber-100 text-amber-800">Critical Risk</span>
+            <h2 id="detail-pest-name" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">Fall Armyworm</h2>
+            <p id="detail-pest-sub" class="text-sm text-slate-600 mt-0.5">Local: Maize Whorl Caterpillar · <span class="italic">Spodoptera frugiperda</span></p>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono-nums">
+            <span class="text-xs text-slate-500 block uppercase">Acoustic Match</span>
+            <span id="detail-confidence" class="text-2xl font-bold text-slate-900">94% Match</span>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-amber-50/70 border border-amber-200 rounded-xl p-4 text-xs sm:text-sm text-slate-700">
+          <strong class="text-amber-950 block mb-1">Acoustic Mandible Signature:</strong>
+          <span id="detail-acoustic-desc">Caterpillar mandibles chewing through thick whorl leaf tissues produce distinct 3.5–5.5 kHz clicks captured by the INMP441 microphone.</span>
+        </div>
+      </div>
+
+      <!-- Treatments: Chemical vs Organic -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- Chemical Treatment -->
+        <div class="bg-white border-2 border-rose-200 rounded-2xl p-6 shadow-xs">
+          <div class="flex items-center gap-2 pb-3 border-b border-rose-100">
+            <span class="text-lg">🧪</span>
+            <h3 class="font-bold text-rose-950 text-base">Chemical & Pesticide Remedies</h3>
+          </div>
+          <div id="detail-chem-list" class="space-y-3 mt-4 text-xs">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Organic Alternative -->
+        <div class="bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-xs">
+          <div class="flex items-center gap-2 pb-3 border-b border-emerald-100">
+            <span class="text-lg">🌿</span>
+            <h3 class="font-bold text-emerald-950 text-base">Organic / Cultural Alternatives</h3>
+          </div>
+          <div id="detail-org-list" class="space-y-3 mt-4 text-xs">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Precautions -->
+      <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xs">
+        <h3 class="font-bold text-slate-900 text-sm mb-3">Farmer Safety & Spray Precautions</h3>
+        <ul id="detail-precautions" class="space-y-2 text-xs sm:text-sm text-slate-700">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+
+      <!-- Acknowledge and Back Button -->
+      <div class="bg-white border-2 border-slate-300 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 class="font-bold text-slate-900 text-base">Finished Reviewing Treatment?</h4>
+          <p class="text-xs text-slate-600">Calls ESP32 <code class="font-mono">POST /api/ack</code> and clears active alert to History.</p>
+        </div>
+        <button id="btn-ack" class="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md text-base transition-transform active:scale-98">
+          ✓ Acknowledge & Return to Home
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- SETTINGS MODAL -->
+  <div id="modal-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl max-w-lg w-full border border-slate-300 shadow-2xl p-6 space-y-5">
+      <div class="flex items-center justify-between border-b pb-3 border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900">ESP32 Settings</h3>
+        <button id="btn-close-settings" class="text-slate-400 hover:text-slate-800 font-bold text-xl">&times;</button>
+      </div>
+
+      <div class="space-y-3">
+        <label class="block text-xs font-bold text-slate-700 uppercase">ESP32 IP Address</label>
+        <div class="flex gap-2">
+          <input id="input-ip" type="text" value="http://192.168.1.50" class="flex-1 px-3.5 py-2 border border-slate-300 rounded-xl font-mono text-sm">
+          <button id="btn-save-ip" class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold">Save</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+        <span class="text-xs font-bold text-slate-700 uppercase block">Field Simulator Trigger</span>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Fall Armyworm">Fall Armyworm</button>
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Desert Locust">Desert Locust</button>
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Stem Borer">Stem Borer</button>
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Corn Earworm">Corn Earworm</button>
+        </div>
+        <button id="btn-sim-clear" class="w-full mt-2 py-2 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-lg hover:bg-emerald-200">Set Field Clear</button>
+      </div>
+
+      <div class="flex justify-end">
+        <button id="btn-done-settings" class="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // Pest Knowledge Base
+    const PEST_DB = {
+      'Fall Armyworm': {
+        name: 'Fall Armyworm',
+        localName: 'Maize Whorl Caterpillar / Armyworm',
+        sciName: 'Spodoptera frugiperda',
+        urgency: 'Critical Risk',
+        desc: 'Caterpillar mandibles crunching through thick whorl leaf tissues produce distinct 3.5–5.5 kHz acoustic clicks picked up by the INMP441 microphone.',
+        chemicals: [
+          { name: 'Chlorantraniliprole 18.5% SC', dose: '0.4 ml / Liter water (60 ml/acre)', desc: 'Direct into whorl cups using backpack sprayer.' },
+          { name: 'Emamectin Benzoate 5% SG', dose: '0.5 g / Liter water (80-100 g/acre)', desc: 'Coarse droplet cone spray directed at crowns.' }
+        ],
+        organics: [
+          { name: 'Neem NSKE 5%', dose: '50 g NSKE/Liter + 1ml sticker soap', desc: 'Spray late afternoon weekly.' },
+          { name: 'Bacillus thuringiensis (Bt)', dose: '2 g / Liter clean water', desc: 'Effective on young instars.' }
+        ],
+        precautions: [
+          'Spray in late afternoon (after 4:30 PM) when caterpillars feed and honeybees are inactive.',
+          'Direct nozzle into the whorl cup where caterpillars hide.',
+          'Always wear protective face mask and gloves during preparation.'
+        ]
+      },
+      'Stem Borer': {
+        name: 'Stem Borer',
+        localName: 'Stalk Borer / Shoot Borer',
+        sciName: 'Chilo partellus / Busseola fusca',
+        urgency: 'High Risk',
+        desc: 'Internal pith tunneling and fiber rasping generates low-mid resonance clicks (1.8–3.4 kHz) against the stalk.',
+        chemicals: [
+          { name: 'Cartap Hydrochloride 4% G', dose: '7 to 8 kg granules / acre', desc: 'Hand whorl drop with protective gloves.' },
+          { name: 'Fipronil 5% SC', dose: '1.5 ml / Liter water', desc: 'Foliar spray along stem base before deep boring.' }
+        ],
+        organics: [
+          { name: 'Push-Pull Intercrop', dose: 'Desmodium rows + Napier grass border', desc: 'Repels moths and traps them on borders.' },
+          { name: 'Trichogramma Cards', dose: '20,000 parasitoid eggs/acre', desc: 'Release 15 & 30 days after crop emergence.' }
+        ],
+        precautions: [
+          'Apply treatments promptly upon acoustic detection before larvae enter core stalks.',
+          'Avoid broadcasting granules on windy days.'
+        ]
+      },
+      'Desert Locust': {
+        name: 'Desert Locust',
+        localName: 'Swarm Grasshopper',
+        sciName: 'Schistocerca gregaria',
+        urgency: 'Critical Risk',
+        desc: 'Wing friction stridulation and synchronized feeding rasping produces loud 4.0–8.2 kHz acoustic spikes.',
+        chemicals: [
+          { name: 'Malathion 50% EC', dose: '2.0 ml / Liter water', desc: 'High-volume boom spray over roosting crops.' }
+        ],
+        organics: [
+          { name: 'Metarhizium acridum', dose: '50 g spores / ha in oil carrier', desc: 'ULV spray early morning when swarms are cool.' }
+        ],
+        precautions: [
+          'Treat roosting hoppers at dawn between 5:30 AM and 7:30 AM.',
+          'Avoid open water canals and honeybee hives.'
+        ]
+      },
+      'Corn Earworm': {
+        name: 'Corn Earworm',
+        localName: 'Earworm / Fruit Borer',
+        sciName: 'Helicoverpa zea / armigera',
+        urgency: 'High Risk',
+        desc: 'Munching through tender silk fibers and ear kernels creates steady 2.4–4.2 kHz impulse clicks.',
+        chemicals: [
+          { name: 'Spinetoram 11.7% SC', dose: '1.0 ml / Liter water', desc: 'Directed spray at ear silk zone.' }
+        ],
+        organics: [
+          { name: 'Helicoverpa NPV (HaNPV)', dose: '1.5 ml / Liter water + jaggery', desc: 'Late afternoon spray.' }
+        ],
+        precautions: [
+          'Spray thoroughly around ear tips at initial silk emergence.',
+          'Wash equipment away from domestic wells.'
+        ]
+      }
+    };
+
+    // State
+    let esp32Ip = localStorage.getItem('agrisound_esp32_ip') || 'http://192.168.1.50';
+    let isSoundMuted = localStorage.getItem('agrisound_muted') === 'true';
+    let isSimulated = false;
+    let isOnline = false;
+    let activeDetection = null;
+    let history = [];
+
+    // Web Audio Synthesizer
+    let audioCtx = null;
+    function playBeep() {
+      if (isSoundMuted) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(587, now);
+        osc.frequency.setValueAtTime(880, now + 0.18);
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } catch (e) {
+        console.warn('Audio blocked', e);
+      }
+    }
+
+    // Render Alert Banner
+    function renderAlert() {
+      const container = document.getElementById('alert-container');
+      const headerPulse = document.getElementById('header-pulse');
+
+      if (activeDetection && activeDetection.detected && activeDetection.pest) {
+        headerPulse.classList.remove('hidden');
+        container.innerHTML = \`
+          <div class="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-sm">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-amber-500 animate-pulse"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-amber-600 text-white flex items-center justify-center text-2xl font-bold shadow-sm shrink-0">
+                  🐛
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded text-xs font-bold uppercase bg-amber-600 text-white">PEST SOUND DETECTED</span>
+                    <span class="text-xs font-semibold text-slate-600">Acoustic Match</span>
+                  </div>
+                  <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-950 mt-1">\${activeDetection.pest}</h2>
+                  <p class="text-sm text-slate-700 font-medium">Distinctive leaf gnawing sounds detected in your crop canopy.</p>
+                  <div class="mt-2 text-xs font-mono-nums font-semibold text-slate-600">
+                    Confidence: <strong class="text-slate-900">\${activeDetection.confidence}%</strong> · Frequency: <strong class="text-slate-900">\${activeDetection.frequency_hz} Hz</strong> · Level: <strong class="text-slate-900">\${activeDetection.db_level.toFixed(1)} dB</strong>
+                  </div>
+                </div>
+              </div>
+              <button id="btn-view-details" class="px-6 py-3.5 rounded-xl text-base font-bold text-white bg-amber-700 hover:bg-amber-800 shadow-md transition-transform active:scale-98 shrink-0">
+                View Treatment & Details &rarr;
+              </button>
+            </div>
+          </div>
+        \`;
+        document.getElementById('btn-view-details').onclick = () => showDetail(activeDetection.pest);
+      } else {
+        headerPulse.classList.add('hidden');
+        container.innerHTML = \`
+          <div class="relative overflow-hidden rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-6 shadow-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl font-bold shadow-xs">
+                  🛡️
+                </div>
+                <div>
+                  <span class="px-2 py-0.5 rounded text-xs font-bold uppercase bg-emerald-700 text-white">All Quiet</span>
+                  <h2 class="text-xl font-bold text-emerald-950 mt-1">Field Clear - No Active Pest Sounds Detected</h2>
+                  <p class="text-xs sm:text-sm text-emerald-800">INMP441 microphone is actively listening for leaf gnawing vibrations.</p>
+                </div>
+              </div>
+              <div class="bg-emerald-100/70 border border-emerald-200 rounded-xl px-3 py-2 text-xs font-mono-nums text-emerald-900">
+                Mic Active · Listening
+              </div>
+            </div>
+          </div>
+        \`;
+      }
+    }
+
+    // Render History
+    function renderHistory() {
+      const list = document.getElementById('history-list');
+      const count = document.getElementById('history-count');
+      count.textContent = \`\${history.length} past detections\`;
+
+      if (history.length === 0) {
+        list.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">No past incidents recorded.</div>';
+        return;
+      }
+
+      list.innerHTML = history.map(item => {
+        const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return \`
+          <div class="py-3.5 flex items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <strong class="text-slate-900 text-sm font-bold">\${item.pest}</strong>
+                <span class="text-xs font-mono-nums bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">\${item.confidence}%</span>
+              </div>
+              <p class="text-xs text-slate-600 mt-0.5">\${item.remedy || 'Prescribed treatment applied'}</p>
+              <span class="text-[11px] text-slate-400 font-mono-nums">\${time}</span>
+            </div>
+            <button onclick="showDetail('\${item.pest}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg">
+              Guide
+            </button>
+          </div>
+        \`;
+      }).join('');
+    }
+
+    // Navigation & Detail Screen
+    window.showDetail = function(pestName) {
+      const data = PEST_DB[pestName] || PEST_DB['Fall Armyworm'];
+      document.getElementById('view-home').classList.add('hidden');
+      document.getElementById('view-detail').classList.remove('hidden');
+
+      document.getElementById('detail-pest-name').textContent = data.name;
+      document.getElementById('detail-pest-sub').innerHTML = \`Local: \${data.localName} · <span class="italic">\${data.sciName}</span>\`;
+      document.getElementById('detail-acoustic-desc').textContent = data.desc;
+      document.getElementById('detail-confidence').textContent = \`\${activeDetection?.confidence || 94}% Match\`;
+
+      // Chemical remedies
+      document.getElementById('detail-chem-list').innerHTML = data.chemicals.map(c => \`
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <strong class="text-slate-900 text-sm block">\${c.name}</strong>
+          <span class="text-rose-700 font-semibold block mt-0.5">Dosage: \${c.dose}</span>
+          <span class="text-slate-600 mt-1 block">\${c.desc}</span>
+        </div>
+      \`).join('');
+
+      // Organic remedies
+      document.getElementById('detail-org-list').innerHTML = data.organics.map(o => \`
+        <div class="bg-emerald-50/50 border border-emerald-200 rounded-xl p-3">
+          <strong class="text-emerald-950 text-sm block">\${o.name}</strong>
+          <span class="text-emerald-800 font-semibold block mt-0.5">Setup: \${o.dose}</span>
+          <span class="text-slate-600 mt-1 block">\${o.desc}</span>
+        </div>
+      \`).join('');
+
+      // Precautions
+      document.getElementById('detail-precautions').innerHTML = data.precautions.map(p => \`
+        <li class="flex items-start gap-2">
+          <span class="text-amber-600 mt-0.5">⚠️</span>
+          <span>\${p}</span>
+        </li>
+      \`).join('');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    function showHome() {
+      document.getElementById('view-detail').classList.add('hidden');
+      document.getElementById('view-home').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Acknowledge endpoint handler
+    document.getElementById('btn-ack').onclick = async function() {
+      const btn = this;
+      btn.textContent = 'Acknowledging...';
+      btn.disabled = true;
+
+      if (!isSimulated) {
+        try {
+          await fetch(esp32Ip + '/api/ack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: activeDetection?.id, pest: activeDetection?.pest })
+          });
+        } catch (e) {
+          console.warn('ESP32 ack fallback', e);
+        }
+      }
+
+      if (activeDetection && activeDetection.detected) {
+        history.unshift({
+          id: Date.now().toString(),
+          pest: activeDetection.pest,
+          confidence: activeDetection.confidence,
+          timestamp: new Date().toISOString(),
+          remedy: 'Acknowledged and treatment applied'
+        });
+      }
+
+      activeDetection = null;
+      btn.textContent = '✓ Acknowledge & Return to Home';
+      btn.disabled = false;
+
+      renderAlert();
+      renderHistory();
+      showHome();
+    };
+
+    document.getElementById('btn-back-home').onclick = showHome;
+
+    // Polling Function: Polls GET /api/latest every 2s
+    async function pollLatest() {
+      if (isSimulated) {
+        // Simulation mode
+        document.getElementById('offline-banner').classList.add('hidden');
+        document.getElementById('hw-status-text').textContent = 'Simulated';
+        document.getElementById('hw-status-dot').className = 'w-2 h-2 rounded-full bg-amber-500';
+        if (activeDetection) {
+          document.getElementById('metric-db').textContent = (54 + Math.random() * 6).toFixed(1) + ' dB';
+        } else {
+          document.getElementById('metric-db').textContent = (32 + Math.random() * 4).toFixed(1) + ' dB';
+        }
+        return;
+      }
+
+      // Real Hardware GET /api/latest
+      try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 1800);
+        const res = await fetch(esp32Ip + '/api/latest', { signal: controller.signal });
+        clearTimeout(id);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        isOnline = true;
+        document.getElementById('offline-banner').classList.add('hidden');
+        document.getElementById('hw-status-text').textContent = 'Online';
+        document.getElementById('hw-status-dot').className = 'w-2 h-2 rounded-full bg-emerald-500';
+
+        const prevDetected = activeDetection?.detected;
+        activeDetection = data;
+
+        if (data.detected && !prevDetected) {
+          playBeep();
+        }
+
+        if (data.db_level) document.getElementById('metric-db').textContent = data.db_level.toFixed(1) + ' dB';
+        if (data.frequency_hz) document.getElementById('metric-hz').textContent = '· ' + data.frequency_hz + ' Hz';
+        if (data.battery_v) document.getElementById('metric-batt').textContent = data.battery_v.toFixed(2) + 'V';
+
+        renderAlert();
+      } catch (err) {
+        isOnline = false;
+        document.getElementById('offline-banner').classList.remove('hidden');
+        document.getElementById('offline-ip-label').textContent = esp32Ip;
+        document.getElementById('hw-status-text').textContent = 'Offline';
+        document.getElementById('hw-status-dot').className = 'w-2 h-2 rounded-full bg-rose-500';
+      }
+    }
+
+    // Setup Event Listeners
+    document.getElementById('btn-toggle-sound').onclick = () => {
+      isSoundMuted = !isSoundMuted;
+      localStorage.setItem('agrisound_muted', isSoundMuted);
+      document.getElementById('sound-icon').textContent = isSoundMuted ? '🔕' : '🔔';
+      document.getElementById('sound-label').textContent = isSoundMuted ? 'Alert Muted' : 'Sound Alert On';
+      if (!isSoundMuted) playBeep();
+    };
+
+    // Settings Modal
+    const modal = document.getElementById('modal-settings');
+    document.getElementById('btn-open-settings').onclick = () => {
+      document.getElementById('input-ip').value = esp32Ip;
+      modal.classList.remove('hidden');
+    };
+    document.getElementById('btn-close-settings').onclick = () => modal.classList.add('hidden');
+    document.getElementById('btn-done-settings').onclick = () => modal.classList.add('hidden');
+    document.getElementById('btn-save-ip').onclick = () => {
+      esp32Ip = document.getElementById('input-ip').value.trim();
+      localStorage.setItem('agrisound_esp32_ip', esp32Ip);
+      document.getElementById('metric-ip').textContent = esp32Ip.replace(/^https?:\\/\\//, '') + ' · 2s';
+      modal.classList.add('hidden');
+      pollLatest();
+    };
+
+    // Simulation triggers
+    document.querySelectorAll('.btn-sim-pest').forEach(btn => {
+      btn.onclick = () => {
+        const pest = btn.getAttribute('data-pest');
+        activeDetection = {
+          detected: true,
+          pest,
+          confidence: 94,
+          timestamp: new Date().toISOString(),
+          db_level: 59.2,
+          frequency_hz: 3820
+        };
+        isSimulated = true;
+        renderAlert();
+        playBeep();
+        modal.classList.add('hidden');
+      };
+    });
+
+    document.getElementById('btn-sim-clear').onclick = () => {
+      activeDetection = null;
+      isSimulated = true;
+      renderAlert();
+      modal.classList.add('hidden');
+    };
+
+    document.getElementById('btn-enable-sim').onclick = () => {
+      isSimulated = true;
+      pollLatest();
+    };
+
+    document.getElementById('btn-retry-conn').onclick = () => {
+      isSimulated = false;
+      pollLatest();
+    };
+
+    // Start 2-second polling loop
+    renderAlert();
+    renderHistory();
+    setInterval(pollLatest, 2000);
+  </script>
+</body>
+</html>
+`;
