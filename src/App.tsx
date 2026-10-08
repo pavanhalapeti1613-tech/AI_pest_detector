@@ -141,11 +141,9 @@ export default function App() {
 
   // Clear history logs
   const handleClearHistory = () => {
-    if (window.confirm('Clear all detection history?')) {
-      esp32.clearHistory();
-      setHistory([]);
-      showToast('Incident history cleared');
-    }
+    esp32.clearHistory();
+    setHistory([]);
+    showToast('Incident history cleared');
   };
 
   const hasActiveAlert = Boolean(currentDetection && currentDetection.detected && currentDetection.pest);
