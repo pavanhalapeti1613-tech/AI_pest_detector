@@ -39,9 +39,9 @@ class SoundAlertSystem {
   }
 
   /**
-   * Plays a distinct, gentle two-tone acoustic alert when a pest sound is detected.
+   * Plays a distinct, gentle acoustic alert when a pest or beneficial sound is detected.
    */
-  public playPestAlert(urgency: 'critical' | 'high' | 'moderate' = 'high') {
+  public playPestAlert(urgency: 'critical' | 'high' | 'moderate' | 'beneficial' = 'high') {
     if (this.isMuted) return;
 
     try {
@@ -50,7 +50,6 @@ class SoundAlertSystem {
 
       const now = this.audioCtx.currentTime;
       const osc1 = this.audioCtx.createOscillator();
-      const osc2 = this.audioCtx.createOscillator();
       const gainNode = this.audioCtx.createGain();
 
       gainNode.gain.setValueAtTime(0.001, now);
@@ -59,7 +58,15 @@ class SoundAlertSystem {
 
       gainNode.connect(this.audioCtx.destination);
 
-      if (urgency === 'critical') {
+      if (urgency === 'beneficial') {
+        // Soft positive chime for beneficial insects (e.g., Dragonfly)
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(523, now); // C5
+        osc1.frequency.setValueAtTime(659, now + 0.18); // E5
+        osc1.connect(gainNode);
+        osc1.start(now);
+        osc1.stop(now + 0.45);
+      } else if (urgency === 'critical') {
         // High alert tone sequence: 784 Hz (G5) -> 987 Hz (B5)
         osc1.type = 'triangle';
         osc1.frequency.setValueAtTime(784, now);

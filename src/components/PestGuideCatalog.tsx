@@ -50,12 +50,14 @@ export const PestGuideCatalog: React.FC<PestGuideCatalogProps> = ({ onSelectPest
 
                 <span
                   className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                    pest.urgencyLevel === 'critical'
+                    pest.urgencyLevel === 'beneficial'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : pest.urgencyLevel === 'critical'
                       ? 'bg-rose-100 text-rose-800'
                       : 'bg-amber-100 text-amber-800'
                   }`}
                 >
-                  {pest.urgencyLevel}
+                  {pest.urgencyLevel === 'beneficial' ? 'Beneficial Predator' : pest.urgencyLevel}
                 </span>
               </div>
 

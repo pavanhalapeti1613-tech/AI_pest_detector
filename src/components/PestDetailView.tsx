@@ -75,11 +75,17 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
 
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                  {pestInfo.urgencyLevel === 'critical' ? 'Urgent Crop Risk' : 'High Crop Risk'}
+                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                  pestInfo.urgencyLevel === 'beneficial'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : pestInfo.urgencyLevel === 'critical'
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {pestInfo.urgencyLevel === 'beneficial' ? 'Beneficial Natural Predator' : pestInfo.urgencyLevel === 'critical' ? 'Urgent Crop Risk' : 'High Crop Risk'}
                 </span>
                 <span className="text-xs font-semibold text-slate-500">
-                  Target Crops: {pestInfo.targetCrops.join(', ')}
+                  Target Crops / Habitat: {pestInfo.targetCrops.join(', ')}
                 </span>
               </div>
 
@@ -124,18 +130,38 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
 
       {/* Suggested Treatments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* SECTION 1: Chemical & Pesticide Treatment */}
-        <div className="bg-white border-2 border-rose-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+        {/* SECTION 1: Chemical & Pesticide Treatment / Advisory */}
+        <div className={`bg-white border-2 rounded-2xl p-6 shadow-xs flex flex-col justify-between ${
+          pestInfo.urgencyLevel === 'beneficial' ? 'border-amber-300' : 'border-rose-200'
+        }`}>
           <div>
-            <div className="flex items-center gap-3 pb-4 border-b border-rose-100">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center">
-                <Beaker className="w-5 h-5" />
+            <div className={`flex items-center gap-3 pb-4 border-b ${
+              pestInfo.urgencyLevel === 'beneficial' ? 'border-amber-200' : 'border-rose-100'
+            }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                pestInfo.urgencyLevel === 'beneficial'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}>
+                {pestInfo.urgencyLevel === 'beneficial' ? (
+                  <ShieldAlert className="w-5 h-5 text-amber-700" />
+                ) : (
+                  <Beaker className="w-5 h-5" />
+                )}
               </div>
               <div>
-                <h2 className="text-lg font-bold text-rose-950">
-                  Chemical & Pesticide Remedies
+                <h2 className={`text-lg font-bold ${
+                  pestInfo.urgencyLevel === 'beneficial' ? 'text-amber-950' : 'text-rose-950'
+                }`}>
+                  {pestInfo.urgencyLevel === 'beneficial'
+                    ? 'Chemical Spray Warning (DO NOT SPRAY)'
+                    : 'Chemical & Pesticide Remedies'}
                 </h2>
-                <p className="text-xs text-slate-600 font-medium">Fast knockdown for heavy infestations</p>
+                <p className="text-xs text-slate-600 font-medium">
+                  {pestInfo.urgencyLevel === 'beneficial'
+                    ? 'Beneficial natural predator — protect from chemical sprays'
+                    : 'Fast root-zone knockdown for burrowing mole crickets'}
+                </p>
               </div>
             </div>
 
@@ -144,18 +170,22 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
                 <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-bold text-slate-900 text-base">{chem.chemicalName}</span>
-                    <span className="text-xs font-mono font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
+                    <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
+                      pestInfo.urgencyLevel === 'beneficial'
+                        ? 'text-emerald-800 bg-emerald-100'
+                        : 'text-rose-700 bg-rose-50'
+                    }`}>
                       {chem.activeIngredient}
                     </span>
                   </div>
 
                   <div className="bg-white border border-slate-200 rounded-lg p-2.5 text-xs font-semibold text-slate-900">
-                    <span className="text-slate-500 uppercase tracking-wider block text-[10px]">Recommended Dosage:</span>
+                    <span className="text-slate-500 uppercase tracking-wider block text-[10px]">Recommended Action:</span>
                     {chem.recommendedDosage}
                   </div>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    <span className="font-semibold text-slate-700">Method: </span>
+                    <span className="font-semibold text-slate-700">Directive: </span>
                     {chem.applicationMethod}
                   </p>
 
@@ -169,7 +199,7 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
           </div>
         </div>
 
-        {/* SECTION 2: Organic & Cultural Alternatives */}
+        {/* SECTION 2: Organic & Cultural Alternatives / Conservation */}
         <div className="bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-3 pb-4 border-b border-emerald-100">
@@ -178,9 +208,15 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-emerald-950">
-                  Organic & Cultural Remedies
+                  {pestInfo.urgencyLevel === 'beneficial'
+                    ? 'Habitat Conservation & Perch Setup'
+                    : 'Organic & Biological Remedies'}
                 </h2>
-                <p className="text-xs text-slate-600 font-medium">Safe for bees, soil biology, and organic export</p>
+                <p className="text-xs text-slate-600 font-medium">
+                  {pestInfo.urgencyLevel === 'beneficial'
+                    ? 'Encourage natural biological predation of crop pests'
+                    : 'Safe for bees, soil biology, and organic farming'}
+                </p>
               </div>
             </div>
 
@@ -195,7 +231,7 @@ export const PestDetailView: React.FC<PestDetailViewProps> = ({
                   </div>
 
                   <div className="bg-white border border-emerald-200 rounded-lg p-2.5 text-xs font-semibold text-emerald-900">
-                    <span className="text-slate-500 uppercase tracking-wider block text-[10px]">Application Setup:</span>
+                    <span className="text-slate-500 uppercase tracking-wider block text-[10px]">Setup / Dosage:</span>
                     {org.dosageOrSetup}
                   </div>
 

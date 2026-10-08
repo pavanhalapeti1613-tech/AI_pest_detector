@@ -23,7 +23,8 @@ interface SettingsModalProps {
   onClose: () => void;
   status: ESP32Status;
   onUpdateIp: (ip: string) => void;
-  onToggleTestMode?: (isTest: boolean) => void;
+  onTriggerTestPest?: (pest: 'Mole Cricket' | 'Dragonfly') => void;
+  onClearTestMode?: () => void;
   isTestMode?: boolean;
   standaloneHtmlCode: string;
 }
@@ -33,7 +34,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   status,
   onUpdateIp,
-  onToggleTestMode,
+  onTriggerTestPest,
+  onClearTestMode,
   isTestMode = false,
   standaloneHtmlCode,
 }) => {
@@ -281,27 +283,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
 
-              {/* Test Mode Switch if user wants to preview detection workflow */}
-              {onToggleTestMode && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 block">
-                      Sensor Test Mode
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Preview alert sound and UI while setting up hardware
-                    </span>
+              {/* Acoustic Detection Test Panel (Only Mole Cricket & Dragonfly) */}
+              {onTriggerTestPest && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block uppercase tracking-wider">
+                        Acoustic Detection Simulation
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Test system response with calibrated pest sound profiles
+                      </span>
+                    </div>
+                    {isTestMode && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                        Simulating
+                      </span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => onToggleTestMode(!isTestMode)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
-                      isTestMode
-                        ? 'bg-emerald-700 text-white'
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                    }`}
-                  >
-                    {isTestMode ? 'Test Mode Active' : 'Enable Test Mode'}
-                  </button>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onTriggerTestPest('Mole Cricket')}
+                      className="p-2.5 bg-white border border-rose-200 hover:border-rose-400 rounded-xl font-bold text-rose-950 hover:bg-rose-50 flex flex-col items-start gap-0.5 transition-colors cursor-pointer text-left shadow-2xs"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                        <span className="font-extrabold">Mole Cricket</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Underground burrow stridulation (2.1 kHz)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onTriggerTestPest('Dragonfly')}
+                      className="p-2.5 bg-white border border-emerald-200 hover:border-emerald-400 rounded-xl font-bold text-emerald-950 hover:bg-emerald-50 flex flex-col items-start gap-0.5 transition-colors cursor-pointer text-left shadow-2xs"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        <span className="font-extrabold">Dragonfly</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Beneficial wing flutter (240 Hz)
+                      </span>
+                    </button>
+                  </div>
+
+                  {isTestMode && onClearTestMode && (
+                    <button
+                      type="button"
+                      onClick={onClearTestMode}
+                      className="w-full py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Set Field Clear (Resume Live Listening)</span>
+                    </button>
+                  )}
                 </div>
               )}
 

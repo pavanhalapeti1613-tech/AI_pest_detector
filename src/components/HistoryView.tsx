@@ -177,7 +177,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                     <div className="text-xs sm:text-sm text-slate-600 font-medium">
                       <span className="font-semibold text-slate-700">Prescribed: </span>
-                      {item.remedy || 'Chlorantraniliprole 18.5% SC or Neem NSKE 5% whorl spray'}
+                      {item.remedy || (pestName.toLowerCase().includes('dragon') ? 'Conserve natural predator · Zero chemical spray' : 'Chlorantraniliprole 18.5% SC root-zone soil drench')}
                     </div>
 
                     <div className="flex items-center gap-3 text-xs text-slate-400 font-mono pt-1">

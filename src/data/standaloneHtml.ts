@@ -133,9 +133,9 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
       <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
-            <span id="detail-urgency-badge" class="px-2.5 py-0.5 rounded text-xs font-bold uppercase bg-amber-100 text-amber-800">Critical Risk</span>
-            <h2 id="detail-pest-name" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">Fall Armyworm</h2>
-            <p id="detail-pest-sub" class="text-sm text-slate-600 mt-0.5">Local: Maize Whorl Caterpillar · <span class="italic">Spodoptera frugiperda</span></p>
+            <span id="detail-urgency-badge" class="px-2.5 py-0.5 rounded text-xs font-bold uppercase bg-rose-100 text-rose-800">Critical Root Pest</span>
+            <h2 id="detail-pest-name" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">Mole Cricket</h2>
+            <p id="detail-pest-sub" class="text-sm text-slate-600 mt-0.5">Local: Burrowing Cricket / Root Digger · <span class="italic">Gryllotalpa spp.</span></p>
           </div>
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono-nums">
             <span class="text-xs text-slate-500 block uppercase">Acoustic Match</span>
@@ -212,12 +212,10 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
       </div>
 
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-        <span class="text-xs font-bold text-slate-700 uppercase block">Field Simulator Trigger</span>
+        <span class="text-xs font-bold text-slate-700 uppercase block">Field Acoustic Test Trigger</span>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Fall Armyworm">Fall Armyworm</button>
-          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Desert Locust">Desert Locust</button>
-          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Stem Borer">Stem Borer</button>
-          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Corn Earworm">Corn Earworm</button>
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-amber-50" data-pest="Mole Cricket">Mole Cricket (Pest)</button>
+          <button class="btn-sim-pest p-2 bg-white border rounded-lg font-semibold hover:bg-emerald-50" data-pest="Dragonfly">Dragonfly (Beneficial)</button>
         </div>
         <button id="btn-sim-clear" class="w-full mt-2 py-2 bg-emerald-100 text-emerald-900 font-bold text-xs rounded-lg hover:bg-emerald-200">Set Field Clear</button>
       </div>
@@ -230,79 +228,45 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
 
   <!-- JAVASCRIPT APPLICATION LOGIC -->
   <script>
-    // Pest Knowledge Base
+    // Pest Knowledge Base (Only Mole Cricket and Dragonfly)
     const PEST_DB = {
-      'Fall Armyworm': {
-        name: 'Fall Armyworm',
-        localName: 'Maize Whorl Caterpillar / Armyworm',
-        sciName: 'Spodoptera frugiperda',
+      'Mole Cricket': {
+        name: 'Mole Cricket',
+        localName: 'Burrowing Cricket / Root Digger Pest',
+        sciName: 'Gryllotalpidae (Gryllotalpa spp.)',
         urgency: 'Critical Risk',
-        desc: 'Caterpillar mandibles crunching through thick whorl leaf tissues produce distinct 3.5–5.5 kHz acoustic clicks picked up by the INMP441 microphone.',
+        desc: 'Male mole crickets carve specialized horn-shaped underground burrows that amplify low-frequency wing friction (1.8–2.3 kHz), detected through topsoil by the INMP441 microphone.',
         chemicals: [
-          { name: 'Chlorantraniliprole 18.5% SC', dose: '0.4 ml / Liter water (60 ml/acre)', desc: 'Direct into whorl cups using backpack sprayer.' },
-          { name: 'Emamectin Benzoate 5% SG', dose: '0.5 g / Liter water (80-100 g/acre)', desc: 'Coarse droplet cone spray directed at crowns.' }
+          { name: 'Chlorantraniliprole 18.5% SC', dose: '0.5 ml / Liter water (100 ml/acre)', desc: 'Root-zone soil drench applied in late afternoon onto moist soil.' },
+          { name: 'Fipronil 0.3% G Granules', dose: '8 to 10 kg / acre', desc: 'Light soil incorporation around seedbeds followed by watering.' }
         ],
         organics: [
-          { name: 'Neem NSKE 5%', dose: '50 g NSKE/Liter + 1ml sticker soap', desc: 'Spray late afternoon weekly.' },
-          { name: 'Bacillus thuringiensis (Bt)', dose: '2 g / Liter clean water', desc: 'Effective on young instars.' }
+          { name: 'Entomopathogenic Nematodes', dose: '1 billion juveniles/acre in water', desc: 'Dusk soil drench; nematodes hunt crickets inside underground tunnels.' },
+          { name: 'Neem Cake Meal', dose: '100 kg / acre into top 5cm soil', desc: 'Incorporate 1 week prior to nursery bed sowing.' }
         ],
         precautions: [
-          'Spray in late afternoon (after 4:30 PM) when caterpillars feed and honeybees are inactive.',
-          'Direct nozzle into the whorl cup where caterpillars hide.',
-          'Always wear protective face mask and gloves during preparation.'
+          'Apply treatments at dusk or evening when mole crickets tunnel up near the soil surface.',
+          'Moisten soil prior to application so treatments penetrate deep burrows.',
+          'Wear protective gloves and boots when applying insecticides.'
         ]
       },
-      'Stem Borer': {
-        name: 'Stem Borer',
-        localName: 'Stalk Borer / Shoot Borer',
-        sciName: 'Chilo partellus / Busseola fusca',
-        urgency: 'High Risk',
-        desc: 'Internal pith tunneling and fiber rasping generates low-mid resonance clicks (1.8–3.4 kHz) against the stalk.',
+      'Dragonfly': {
+        name: 'Dragonfly',
+        localName: 'Beneficial Field Hunter / Natural Predator',
+        sciName: 'Anisoptera (Order: Odonata)',
+        urgency: 'Beneficial Insect',
+        desc: 'Rapid 30–40 Hz dual wing beats generate distinctive aerodynamic flutter harmonics (120–380 Hz) captured by the INMP441 sensor while hovering near the crop canopy.',
         chemicals: [
-          { name: 'Cartap Hydrochloride 4% G', dose: '7 to 8 kg granules / acre', desc: 'Hand whorl drop with protective gloves.' },
-          { name: 'Fipronil 5% SC', dose: '1.5 ml / Liter water', desc: 'Foliar spray along stem base before deep boring.' }
+          { name: 'DO NOT APPLY CHEMICALS', dose: 'Zero chemical spray needed', desc: 'Dragonflies are beneficial biological predators. Protect and conserve them.' }
         ],
         organics: [
-          { name: 'Push-Pull Intercrop', dose: 'Desmodium rows + Napier grass border', desc: 'Repels moths and traps them on borders.' },
-          { name: 'Trichogramma Cards', dose: '20,000 parasitoid eggs/acre', desc: 'Release 15 & 30 days after crop emergence.' }
+          { name: 'Field Perch Installation', dose: '15-20 bamboo stakes (1.5m tall) per acre', desc: 'Provides resting posts for hunting adult dragonflies across crop fields.' },
+          { name: 'Preserve Border Water Ponds', dose: 'Maintain clean farm canal margins', desc: 'Supports aquatic nymph development to naturally suppress mosquito and moth larvae.' }
         ],
         precautions: [
-          'Apply treatments promptly upon acoustic detection before larvae enter core stalks.',
-          'Avoid broadcasting granules on windy days.'
-        ]
-      },
-      'Desert Locust': {
-        name: 'Desert Locust',
-        localName: 'Swarm Grasshopper',
-        sciName: 'Schistocerca gregaria',
-        urgency: 'Critical Risk',
-        desc: 'Wing friction stridulation and synchronized feeding rasping produces loud 4.0–8.2 kHz acoustic spikes.',
-        chemicals: [
-          { name: 'Malathion 50% EC', dose: '2.0 ml / Liter water', desc: 'High-volume boom spray over roosting crops.' }
-        ],
-        organics: [
-          { name: 'Metarhizium acridum', dose: '50 g spores / ha in oil carrier', desc: 'ULV spray early morning when swarms are cool.' }
-        ],
-        precautions: [
-          'Treat roosting hoppers at dawn between 5:30 AM and 7:30 AM.',
-          'Avoid open water canals and honeybee hives.'
-        ]
-      },
-      'Corn Earworm': {
-        name: 'Corn Earworm',
-        localName: 'Earworm / Fruit Borer',
-        sciName: 'Helicoverpa zea / armigera',
-        urgency: 'High Risk',
-        desc: 'Munching through tender silk fibers and ear kernels creates steady 2.4–4.2 kHz impulse clicks.',
-        chemicals: [
-          { name: 'Spinetoram 11.7% SC', dose: '1.0 ml / Liter water', desc: 'Directed spray at ear silk zone.' }
-        ],
-        organics: [
-          { name: 'Helicoverpa NPV (HaNPV)', dose: '1.5 ml / Liter water + jaggery', desc: 'Late afternoon spray.' }
-        ],
-        precautions: [
-          'Spray thoroughly around ear tips at initial silk emergence.',
-          'Wash equipment away from domestic wells.'
+          'Dragonflies feed voraciously on crop pests (stem borer moths, planthoppers, and flies).',
+          'NEVER spray broad-spectrum insecticides while dragonflies are actively hunting.',
+          'Conserve clean farm ponds and water reservoirs along field borders.'
         ]
       }
     };
@@ -430,7 +394,7 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
 
     // Navigation & Detail Screen
     window.showDetail = function(pestName) {
-      const data = PEST_DB[pestName] || PEST_DB['Fall Armyworm'];
+      const data = PEST_DB[pestName] || PEST_DB['Mole Cricket'];
       document.getElementById('view-home').classList.add('hidden');
       document.getElementById('view-detail').classList.remove('hidden');
 

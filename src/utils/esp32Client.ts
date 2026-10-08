@@ -63,20 +63,25 @@ class ESP32Client {
     localStorage.setItem(STORAGE_SIM_KEY, String(sim));
   }
 
-  public triggerTestPest(pestName: string, confidence: number = 94) {
+  public triggerTestPest(pestName: 'Mole Cricket' | 'Dragonfly' | string, confidence: number = 94) {
+    const isDragonfly = pestName.toLowerCase().includes('dragon');
+    const selectedPest = isDragonfly ? 'Dragonfly' : 'Mole Cricket';
+    
     this.simulatedActiveDetection = {
       id: `test-${Date.now()}`,
       detected: true,
-      pest: pestName,
+      pest: selectedPest,
       confidence,
       timestamp: new Date().toISOString(),
-      db_level: 58.4,
-      frequency_hz: 3820,
+      db_level: isDragonfly ? 41.8 : 58.4,
+      frequency_hz: isDragonfly ? 240 : 2180,
       device_id: 'ESP32-TEST',
       battery_v: 4.12,
       acknowledged: false,
       field_zone: 'Zone A',
-      remedy: 'Prescribed treatment for ' + pestName,
+      remedy: isDragonfly
+        ? 'Beneficial natural predator conserved · Zero spray required'
+        : 'Chlorantraniliprole 18.5% SC root-zone soil drench (0.5 ml/L)',
     };
   }
 

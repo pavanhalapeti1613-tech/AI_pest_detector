@@ -16,14 +16,32 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
   const confidence = detection?.confidence || 0;
 
   if (isPestDetected) {
+    const isBeneficial = pestName.toLowerCase().includes('dragon');
     const isCritical = confidence >= 90;
-    const bannerBg = isCritical
+
+    const bannerBg = isBeneficial
+      ? 'bg-emerald-50 border-emerald-300'
+      : isCritical
       ? 'bg-rose-50 border-rose-300'
       : 'bg-amber-50 border-amber-300';
-    const accentTextColor = isCritical ? 'text-rose-950' : 'text-amber-950';
-    const badgeColor = isCritical
+
+    const accentTextColor = isBeneficial
+      ? 'text-emerald-950'
+      : isCritical
+      ? 'text-rose-950'
+      : 'text-amber-950';
+
+    const badgeColor = isBeneficial
+      ? 'bg-emerald-700 text-white'
+      : isCritical
       ? 'bg-rose-600 text-white'
       : 'bg-amber-600 text-white';
+
+    const badgeText = isBeneficial
+      ? 'BENEFICIAL INSECT DETECTED'
+      : isCritical
+      ? 'URGENT ROOT PEST DETECTED'
+      : 'PEST SOUND DETECTED';
 
     return (
       <div
@@ -32,7 +50,11 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
         {/* Urgent acoustic alert pulse bar */}
         <div
           className={`absolute top-0 left-0 right-0 h-1.5 ${
-            isCritical ? 'bg-rose-500 animate-pulse' : 'bg-amber-500 animate-pulse'
+            isBeneficial
+              ? 'bg-emerald-500'
+              : isCritical
+              ? 'bg-rose-500 animate-pulse'
+              : 'bg-amber-500 animate-pulse'
           }`}
         />
 
@@ -40,7 +62,11 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
           <div className="flex items-start gap-4 sm:gap-5">
             <div
               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                isCritical ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                isBeneficial
+                  ? 'bg-emerald-600 text-white'
+                  : isCritical
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-amber-600 text-white'
               }`}
             >
               <Bug className="w-8 h-8 sm:w-9 sm:h-9" />
@@ -49,7 +75,7 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider ${badgeColor}`}>
-                  {isCritical ? 'URGENT PEST DETECTED' : 'PEST SOUND DETECTED'}
+                  {badgeText}
                 </span>
                 <span className="text-xs font-medium text-slate-600">
                   Acoustic INMP441 Match · Zone A
@@ -61,7 +87,9 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
               </h2>
 
               <p className="text-sm sm:text-base text-slate-700 font-medium">
-                Vibration & acoustic chewing frequency match detected in your crop canopy. Immediate inspection advised.
+                {isBeneficial
+                  ? 'Natural aerial predator wing flutter detected in your field. Dragonflies hunt harmful pests—do not spray.'
+                  : 'Subterranean root-chewing and burrow stridulation detected in crop soil. Seedbed inspection advised.'}
               </p>
             </div>
           </div>
@@ -71,12 +99,14 @@ export const RecentAlertBanner: React.FC<RecentAlertBannerProps> = ({
             <button
               onClick={() => onViewDetails(pestName)}
               className={`px-6 py-3.5 sm:py-4 rounded-xl text-base sm:text-lg font-bold text-white shadow-md hover:shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-98 cursor-pointer ${
-                isCritical
+                isBeneficial
+                  ? 'bg-emerald-700 hover:bg-emerald-800'
+                  : isCritical
                   ? 'bg-rose-700 hover:bg-rose-800'
                   : 'bg-amber-700 hover:bg-amber-800'
               }`}
             >
-              <span>View Treatment & Details</span>
+              <span>{isBeneficial ? 'View Conservation Guide' : 'View Treatment & Details'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>

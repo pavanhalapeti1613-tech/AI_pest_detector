@@ -39,7 +39,7 @@ export interface PestInfo {
   }[];
   sprayPrecautions: string[];
   identificationTips: string[];
-  urgencyLevel: 'high' | 'critical' | 'moderate';
+  urgencyLevel: 'high' | 'critical' | 'moderate' | 'beneficial';
 }
 
 export interface ESP32Status {

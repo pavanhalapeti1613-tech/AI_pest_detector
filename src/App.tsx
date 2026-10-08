@@ -14,7 +14,7 @@ import { History, BookOpen, Cpu, ArrowRight, Sparkles, Bug } from 'lucide-react'
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'detail' | 'history' | 'catalog'>('home');
-  const [selectedPestForDetail, setSelectedPestForDetail] = useState<string>('Fall Armyworm');
+  const [selectedPestForDetail, setSelectedPestForDetail] = useState<string>('Mole Cricket');
   const [currentDetection, setCurrentDetection] = useState<PestDetection | null>(null);
   const [history, setHistory] = useState<PestDetection[]>([]);
   const [espStatus, setEspStatus] = useState<ESP32Status>({
@@ -60,8 +60,11 @@ export default function App() {
 
       // Trigger sound alert only if genuine pest sound was detected by real ESP32
       if (data.detected && data.pest && !prevDetectedRef.current) {
-        soundAlert.playPestAlert('high');
-        showToast(`Acoustic Alert: ${data.pest} detected in crop canopy!`);
+        const isDragonfly = data.pest.toLowerCase().includes('dragon');
+        soundAlert.playPestAlert(isDragonfly ? 'beneficial' : 'critical');
+        showToast(isDragonfly
+          ? `Beneficial Insect: ${data.pest} wing flutter detected in field (Do not spray)`
+          : `Acoustic Alert: ${data.pest} detected! Check soil roots immediately.`);
       }
       prevDetectedRef.current = Boolean(data.detected && data.pest);
     } catch {
@@ -126,16 +129,23 @@ export default function App() {
     showToast(`Target ESP32 IP set to ${newIp}`);
   };
 
-  const handleToggleTestMode = (enable: boolean) => {
-    esp32.setSimulationMode(enable);
-    if (enable) {
-      esp32.triggerTestPest('Fall Armyworm', 94);
-      soundAlert.playPestAlert('high');
-      showToast('Test Mode Activated: Fall Armyworm acoustic pattern');
+  const handleTriggerTestPest = (pestName: 'Mole Cricket' | 'Dragonfly') => {
+    esp32.setSimulationMode(true);
+    esp32.triggerTestPest(pestName, 95);
+    if (pestName === 'Dragonfly') {
+      soundAlert.playPestAlert('beneficial');
+      showToast('Acoustic Match: Dragonfly beneficial wing flutter (240 Hz)');
     } else {
-      esp32.clearTestPest();
-      showToast('Switched to Live ESP32 Hardware Polling');
+      soundAlert.playPestAlert('high');
+      showToast('Acoustic Match: Mole Cricket subterranean vibration (2,180 Hz)');
     }
+    pollDevice();
+  };
+
+  const handleClearTestMode = () => {
+    esp32.clearTestPest();
+    esp32.setSimulationMode(false);
+    showToast('Resumed live ESP32 microphone surveillance');
     pollDevice();
   };
 
@@ -303,7 +313,7 @@ export default function App() {
                             {dateStr} · {timeStr}
                           </span>
                           <button
-                            onClick={() => handleViewPestDetails(item.pest || 'Fall Armyworm')}
+                            onClick={() => handleViewPestDetails(item.pest || 'Mole Cricket')}
                             className="px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer"
                           >
                             Guide
@@ -351,7 +361,8 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         status={espStatus}
         onUpdateIp={handleUpdateIp}
-        onToggleTestMode={handleToggleTestMode}
+        onTriggerTestPest={handleTriggerTestPest}
+        onClearTestMode={handleClearTestMode}
         isTestMode={espStatus.isSimulated}
         standaloneHtmlCode={STANDALONE_HTML}
       />
