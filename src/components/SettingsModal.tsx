@@ -2,24 +2,29 @@ import React, { useState } from 'react';
 import {
   X,
   Sliders,
-  Volume2,
   Code,
   Copy,
   Check,
   CheckCircle2,
-  AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Download,
   Wifi,
+  FileCode,
+  HelpCircle,
+  ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
 import { ESP32Status } from '../types';
-import { soundAlert } from '../utils/audioAlert';
+import { ESP32_ARDUINO_SKETCH } from '../data/esp32ArduinoCode';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   status: ESP32Status;
   onUpdateIp: (ip: string) => void;
+  onToggleTestMode?: (isTest: boolean) => void;
+  isTestMode?: boolean;
   standaloneHtmlCode: string;
 }
 
@@ -28,15 +33,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   status,
   onUpdateIp,
+  onToggleTestMode,
+  isTestMode = false,
   standaloneHtmlCode,
 }) => {
   const [ipInput, setIpInput] = useState(status.ipAddress);
-  const [activeTab, setActiveTab] = useState<'connection' | 'audio' | 'esp32code'>('connection');
+  const [activeTab, setActiveTab] = useState<'connection' | 'arduino' | 'esp32code' | 'help'>('connection');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedArduino, setCopiedArduino] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
-  const [pingResult, setPingResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [pingResult, setPingResult] = useState<{
+    success: boolean;
+    isMixedContent?: boolean;
+    message: string;
+  } | null>(null);
 
   if (!isOpen) return null;
+
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
   const handleSaveIp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,19 +64,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const url = targetIp.replace(/\/+$/, '') + '/api/latest';
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 2000);
+      const id = setTimeout(() => controller.abort(), 2500);
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(id);
       if (res.ok) {
-        setPingResult({ success: true, message: `Connected! HTTP ${res.status} OK` });
+        setPingResult({ success: true, message: `Connected to ESP32! HTTP ${res.status} OK` });
       } else {
-        setPingResult({ success: false, message: `Device responded with error HTTP ${res.status}` });
+        setPingResult({ success: false, message: `Device responded with HTTP ${res.status}` });
       }
     } catch (err: unknown) {
-      setPingResult({
-        success: false,
-        message: 'Could not connect. Ensure your ESP32 is powered on and connected to the same WiFi network.',
-      });
+      if (isHttps && targetIp.startsWith('http://')) {
+        setPingResult({
+          success: false,
+          isMixedContent: true,
+          message:
+            'Browser Blocked Request (Mixed Content): Modern browsers block secure HTTPS websites from fetching local HTTP IP addresses directly without site permissions or local hosting.',
+        });
+      } else {
+        setPingResult({
+          success: false,
+          isMixedContent: false,
+          message: 'Could not connect. Ensure your ESP32 is powered on and connected to this WiFi network.',
+        });
+      }
     } finally {
       setIsPinging(false);
     }
@@ -72,6 +96,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     navigator.clipboard.writeText(standaloneHtmlCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyArduino = () => {
+    navigator.clipboard.writeText(ESP32_ARDUINO_SKETCH);
+    setCopiedArduino(true);
+    setTimeout(() => setCopiedArduino(false), 2000);
   };
 
   const handleDownloadStandaloneHtml = () => {
@@ -96,8 +126,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Sliders className="w-5 h-5 text-slate-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">ESP32 & Sensor Configuration</h2>
-              <p className="text-xs text-slate-500 font-medium">INMP441 Acoustic Hardware & Connection</p>
+              <h2 className="text-lg font-bold text-slate-900">ESP32 Hardware & Connection</h2>
+              <p className="text-xs text-slate-500 font-medium">WiFi IP, Browser Security & Arduino Code</p>
             </div>
           </div>
 
@@ -110,49 +140,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 text-xs font-bold">
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 text-xs font-bold overflow-x-auto">
           <button
             onClick={() => setActiveTab('connection')}
-            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer ${
+            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'connection'
                 ? 'border-emerald-600 text-emerald-800'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
-            WiFi & IP Connection
+            WiFi & IP Setup
           </button>
           <button
-            onClick={() => setActiveTab('audio')}
-            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'audio'
+            onClick={() => setActiveTab('help')}
+            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+              activeTab === 'help'
                 ? 'border-emerald-600 text-emerald-800'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
-            Audio Alerts
+            <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+            Fix Connection Error
+          </button>
+          <button
+            onClick={() => setActiveTab('arduino')}
+            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+              activeTab === 'arduino'
+                ? 'border-emerald-600 text-emerald-800'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            Arduino ESP32 Sketch
           </button>
           <button
             onClick={() => setActiveTab('esp32code')}
-            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1 ${
+            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
               activeTab === 'esp32code'
                 ? 'border-emerald-600 text-emerald-800'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
             }`}
           >
             <Code className="w-3.5 h-3.5" />
-            ESP32 LittleFS Firmware
+            LittleFS index.html
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 overflow-y-auto space-y-6">
-          {/* TAB 1: WiFi & IP Connection */}
+        <div className="p-6 overflow-y-auto space-y-5">
+          {/* TAB 1: WiFi & IP Setup */}
           {activeTab === 'connection' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
+              {/* Mixed Content Warning Alert (Shown if on HTTPS) */}
+              {isHttps && (
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-950 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    Important: Browser Mixed Content Note
+                  </div>
+                  <p className="text-amber-800 leading-relaxed">
+                    Because this preview runs over <strong>HTTPS</strong>, web browsers block requests to local <strong>HTTP</strong> IPs (<code className="bg-amber-100 px-1 rounded font-mono">{status.ipAddress}</code>) unless you allow insecure content or use the standalone HTML.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('help')}
+                    className="text-amber-900 font-bold underline cursor-pointer mt-1 block"
+                  >
+                    View 3 Simple Solutions to Connect &rarr;
+                  </button>
+                </div>
+              )}
+
               {/* IP Input Form */}
               <form onSubmit={handleSaveIp} className="space-y-3">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  ESP32 Microcontroller IP Address
+                  ESP32 IP Address
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -166,11 +227,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="submit"
                     className="px-5 py-2.5 bg-emerald-700 text-white font-bold text-sm rounded-xl hover:bg-emerald-800 transition-colors cursor-pointer shrink-0"
                   >
-                    Save & Test
+                    Save & Ping
                   </button>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Target address: <code className="font-mono text-slate-700 font-semibold">{status.ipAddress}</code>. The app automatically polls <code className="font-mono text-slate-700 font-semibold">GET /api/latest</code> every 2 seconds.
+                  Default: <code className="font-mono text-slate-700 font-semibold">{status.ipAddress}</code>. The app polls <code className="font-mono text-slate-700 font-semibold">GET /api/latest</code> every 2 seconds.
                 </p>
               </form>
 
@@ -178,27 +239,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {isPinging && (
                 <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 p-3 rounded-xl">
                   <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
-                  <span>Checking connection to ESP32 at {ipInput}...</span>
+                  <span>Testing connection to {ipInput}...</span>
                 </div>
               )}
 
               {pingResult && !isPinging && (
                 <div
-                  className={`p-3.5 rounded-xl border text-xs font-medium flex items-start gap-2.5 ${
+                  className={`p-3.5 rounded-xl border text-xs font-medium space-y-1.5 ${
                     pingResult.success
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                      : 'bg-amber-50 border-amber-300 text-amber-950'
                   }`}
                 >
-                  {pingResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <span className="font-bold block">{pingResult.success ? 'ESP32 Connected' : 'Connection Status'}</span>
-                    <span>{pingResult.message}</span>
+                  <div className="flex items-start gap-2">
+                    {pingResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <span className="font-bold block text-sm">
+                        {pingResult.success ? 'ESP32 Connected!' : 'Connection Notice'}
+                      </span>
+                      <p className="mt-0.5 leading-relaxed">{pingResult.message}</p>
+                    </div>
                   </div>
+
+                  {pingResult.isMixedContent && (
+                    <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
+                      <span className="text-[11px] text-amber-800">
+                        Browser blocked local HTTP call from HTTPS.
+                      </span>
+                      <button
+                        onClick={() => setActiveTab('help')}
+                        className="font-bold text-emerald-800 bg-white border border-amber-300 px-2.5 py-1 rounded text-xs hover:bg-amber-100"
+                      >
+                        How to Fix &rarr;
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Test Mode Switch if user wants to preview detection workflow */}
+              {onToggleTestMode && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      Sensor Test Mode
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Preview alert sound and UI while setting up hardware
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => onToggleTestMode(!isTestMode)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
+                      isTestMode
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    }`}
+                  >
+                    {isTestMode ? 'Test Mode Active' : 'Enable Test Mode'}
+                  </button>
                 </div>
               )}
 
@@ -211,43 +314,107 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="bg-white p-2 rounded border">SD &rarr; GPIO 32</div>
                   <div className="bg-white p-2 rounded border">VDD &rarr; 3.3V / L/R &rarr; GND</div>
                 </div>
-                <div className="pt-2 text-slate-500">
-                  <span className="font-semibold text-slate-700">Required Endpoints:</span>
-                  <div className="font-mono mt-1 space-y-0.5">
-                    <div>· <code className="text-emerald-700 font-bold">GET /api/latest</code> &rarr; returns {"{ detected, pest, confidence, timestamp }"}</div>
-                    <div>· <code className="text-emerald-700 font-bold">GET /api/history</code> &rarr; returns array of past events</div>
-                    <div>· <code className="text-emerald-700 font-bold">POST /api/ack</code> &rarr; acknowledges and archives alert</div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: Audio Alerts */}
-          {activeTab === 'audio' && (
-            <div className="space-y-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Acoustic Sound Alert Test
-                </span>
-                <p className="text-xs text-slate-600">
-                  When the INMP441 microphone identifies a genuine pest sound, AgriSound plays a gentle acoustic chime so farmers working out in the field do not miss urgent infestations.
+          {/* TAB 2: Fix Connection Error (Browser Mixed Content Guide) */}
+          {activeTab === 'help' && (
+            <div className="space-y-4 text-xs text-slate-700 leading-relaxed">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+                <h3 className="font-bold text-sm text-amber-950 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                  Why is it showing this error with the correct IP?
+                </h3>
+                <p className="text-amber-900">
+                  This application is currently running on a secure cloud URL starting with <strong>HTTPS</strong>. For security, modern web browsers (Chrome, Edge, Safari) automatically block web pages from directly calling unencrypted local IP addresses (like <code className="bg-amber-100 px-1 rounded font-mono">http://192.168.1.50</code>).
                 </p>
+              </div>
 
-                <div className="flex items-center gap-3 pt-2">
+              <h4 className="font-bold text-slate-900 text-sm pt-1">
+                Choose One of These 3 Solutions:
+              </h4>
+
+              {/* Solution 1 */}
+              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-emerald-950 text-sm">
+                    Option 1 (Recommended): Run Standalone HTML
+                  </span>
+                  <span className="bg-emerald-200 text-emerald-900 text-[10px] font-bold px-2 py-0.5 rounded">
+                    EASIEST & ZERO-RESTRICTION
+                  </span>
+                </div>
+                <p className="text-emerald-900">
+                  Download the self-contained single-file HTML and open it directly from your computer or upload it to your ESP32’s LittleFS storage. When opened locally, there is <strong>NO HTTPS Mixed-Content block</strong>!
+                </p>
+                <div className="pt-1">
                   <button
-                    onClick={() => soundAlert.playTestBeep()}
-                    className="px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-800 transition-colors cursor-pointer"
+                    onClick={handleDownloadStandaloneHtml}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg flex items-center gap-2 cursor-pointer shadow-xs"
                   >
-                    <Volume2 className="w-4 h-4" />
-                    Play Test Alert Beep
+                    <Download className="w-4 h-4" />
+                    Download index.html for Local / ESP32 Use
                   </button>
                 </div>
               </div>
+
+              {/* Solution 2 */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+                <span className="font-bold text-slate-900 text-sm block">
+                  Option 2: Allow Insecure Content in Your Browser (10 Seconds)
+                </span>
+                <p className="text-slate-600">
+                  If you want to keep viewing this cloud dashboard:
+                </p>
+                <ol className="list-decimal pl-5 space-y-1 text-slate-700 font-medium">
+                  <li>Click the <strong>Lock / Settings icon 🔒</strong> to the left of the URL address bar.</li>
+                  <li>Click <strong>Site settings</strong>.</li>
+                  <li>Scroll to <strong>Insecure content</strong> and change from <em>Block</em> to <strong>Allow</strong>.</li>
+                  <li>Reload this page. The browser will now allow connecting to <code className="font-mono font-bold text-slate-900">http://192.168.1.50</code>!</li>
+                </ol>
+              </div>
+
+              {/* Solution 3 */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+                <span className="font-bold text-slate-900 text-sm block">
+                  Option 3: Enable CORS on your ESP32 Code
+                </span>
+                <p className="text-slate-600">
+                  Ensure your ESP32 Arduino sketch has CORS headers enabled in the HTTP response.
+                </p>
+                <pre className="bg-slate-900 text-slate-100 p-2.5 rounded text-[11px] font-mono overflow-x-auto">
+                  <code>{`server.enableCORS(true); // Call in setup()`}</code>
+                </pre>
+              </div>
             </div>
           )}
 
-          {/* TAB 3: Standalone LittleFS HTML */}
+          {/* TAB 3: Full Arduino Sketch */}
+          {activeTab === 'arduino' && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900">
+                <span className="font-bold block mb-1">Production-Ready ESP32 Firmware:</span>
+                This Arduino C++ sketch connects to WiFi, configures the INMP441 I2S microphone, and provides the REST endpoints (<code className="font-mono">/api/latest</code>, <code className="font-mono">/api/history</code>, <code className="font-mono">/api/ack</code>) with CORS headers enabled!
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyArduino}
+                  className="px-4 py-2 bg-emerald-700 text-white font-bold text-xs rounded-xl hover:bg-emerald-800 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  {copiedArduino ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copiedArduino ? 'Copied Arduino Sketch!' : 'Copy Arduino Sketch (.ino)'}
+                </button>
+              </div>
+
+              <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono max-h-72 overflow-y-auto leading-relaxed">
+                <code>{ESP32_ARDUINO_SKETCH}</code>
+              </pre>
+            </div>
+          )}
+
+          {/* TAB 4: LittleFS HTML */}
           {activeTab === 'esp32code' && (
             <div className="space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950">
@@ -275,11 +442,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
 
-              <div className="relative">
-                <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono max-h-60 overflow-y-auto leading-relaxed">
-                  <code>{standaloneHtmlCode.slice(0, 1200)}...</code>
-                </pre>
-              </div>
+              <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono max-h-60 overflow-y-auto leading-relaxed">
+                <code>{standaloneHtmlCode.slice(0, 1200)}...</code>
+              </pre>
             </div>
           )}
         </div>

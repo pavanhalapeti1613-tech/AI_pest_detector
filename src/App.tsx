@@ -126,6 +126,19 @@ export default function App() {
     showToast(`Target ESP32 IP set to ${newIp}`);
   };
 
+  const handleToggleTestMode = (enable: boolean) => {
+    esp32.setSimulationMode(enable);
+    if (enable) {
+      esp32.triggerTestPest('Fall Armyworm', 94);
+      soundAlert.playPestAlert('high');
+      showToast('Test Mode Activated: Fall Armyworm acoustic pattern');
+    } else {
+      esp32.clearTestPest();
+      showToast('Switched to Live ESP32 Hardware Polling');
+    }
+    pollDevice();
+  };
+
   // Clear history logs
   const handleClearHistory = () => {
     if (window.confirm('Clear all detection history?')) {
@@ -340,6 +353,8 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         status={espStatus}
         onUpdateIp={handleUpdateIp}
+        onToggleTestMode={handleToggleTestMode}
+        isTestMode={espStatus.isSimulated}
         standaloneHtmlCode={STANDALONE_HTML}
       />
 

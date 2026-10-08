@@ -3,20 +3,23 @@ import { PestDetection, ESP32Status } from '../types';
 const DEFAULT_IP = 'http://192.168.1.50';
 const STORAGE_IP_KEY = 'agrisound_esp32_ip';
 const STORAGE_HISTORY_KEY = 'agrisound_local_history';
+const STORAGE_SIM_KEY = 'agrisound_sim_mode';
 
 class ESP32Client {
   private ipAddress: string;
   private history: PestDetection[] = [];
+  private isSimulated: boolean = false;
+  private simulatedActiveDetection: PestDetection | null = null;
 
   constructor() {
     this.ipAddress = localStorage.getItem(STORAGE_IP_KEY) || DEFAULT_IP;
+    this.isSimulated = localStorage.getItem(STORAGE_SIM_KEY) === 'true';
 
-    // Load persisted real history if any exists from past sessions
+    // Load persisted real history if any exists
     const storedHistory = localStorage.getItem(STORAGE_HISTORY_KEY);
     if (storedHistory) {
       try {
         const parsed = JSON.parse(storedHistory);
-        // Filter out any previous dummy/demo IDs if left over
         this.history = Array.isArray(parsed)
           ? parsed.filter((item: PestDetection) => !item.id?.startsWith('det-hist-') && !item.id?.startsWith('det-live-'))
           : [];
@@ -51,6 +54,36 @@ class ESP32Client {
     localStorage.setItem(STORAGE_IP_KEY, this.ipAddress);
   }
 
+  public isSimulationMode(): boolean {
+    return this.isSimulated;
+  }
+
+  public setSimulationMode(sim: boolean) {
+    this.isSimulated = sim;
+    localStorage.setItem(STORAGE_SIM_KEY, String(sim));
+  }
+
+  public triggerTestPest(pestName: string, confidence: number = 94) {
+    this.simulatedActiveDetection = {
+      id: `test-${Date.now()}`,
+      detected: true,
+      pest: pestName,
+      confidence,
+      timestamp: new Date().toISOString(),
+      db_level: 58.4,
+      frequency_hz: 3820,
+      device_id: 'ESP32-TEST',
+      battery_v: 4.12,
+      acknowledged: false,
+      field_zone: 'Zone A',
+      remedy: 'Prescribed treatment for ' + pestName,
+    };
+  }
+
+  public clearTestPest() {
+    this.simulatedActiveDetection = null;
+  }
+
   /**
    * Helper to execute fetch with timeout
    */
@@ -74,6 +107,36 @@ class ESP32Client {
    * Poll GET /api/latest directly from the ESP32
    */
   public async getLatest(): Promise<{ data: PestDetection; status: ESP32Status }> {
+    // If user explicitly activated Simulation / Test mode
+    if (this.isSimulated) {
+      const current = this.simulatedActiveDetection || {
+        id: 'det-clear',
+        detected: false,
+        pest: null,
+        confidence: 0,
+        timestamp: new Date().toISOString(),
+        db_level: 34.0,
+        frequency_hz: 400,
+        device_id: 'ESP32-TEST',
+        battery_v: 4.12,
+        acknowledged: false,
+      };
+
+      return {
+        data: current,
+        status: {
+          ipAddress: this.ipAddress,
+          isOnline: true,
+          isSimulated: true,
+          lastSuccessfulPing: new Date().toISOString(),
+          errorMessage: null,
+          isPolling: true,
+          batteryVoltage: 4.12,
+          micNoiseFloorDb: current.db_level,
+        },
+      };
+    }
+
     const endpoint = `${this.ipAddress}/api/latest`;
     try {
       const res = await this.fetchWithTimeout(endpoint, { method: 'GET' }, 2200);
@@ -110,7 +173,15 @@ class ESP32Client {
         },
       };
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Waiting for connection';
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      let errorNote = 'Cannot reach device';
+
+      if (isHttps && this.ipAddress.startsWith('http://')) {
+        errorNote = 'Browser Mixed Content Block: HTTPS page cannot fetch local HTTP endpoint directly without browser permission or standalone HTML.';
+      } else if (err instanceof Error) {
+        errorNote = err.message;
+      }
+
       return {
         data: {
           id: 'waiting',
@@ -129,7 +200,7 @@ class ESP32Client {
           isOnline: false,
           isSimulated: false,
           lastSuccessfulPing: null,
-          errorMessage: `Waiting to connect to ESP32 at ${this.ipAddress}. Connect your phone/PC to the farm WiFi. (${message})`,
+          errorMessage: errorNote,
           isPolling: true,
           batteryVoltage: 0,
           micNoiseFloorDb: 0,
@@ -142,6 +213,10 @@ class ESP32Client {
    * Fetch real history from ESP32: GET /api/history
    */
   public async getHistory(): Promise<PestDetection[]> {
+    if (this.isSimulated) {
+      return [...this.history];
+    }
+
     const endpoint = `${this.ipAddress}/api/history`;
     try {
       const res = await this.fetchWithTimeout(endpoint, { method: 'GET' }, 2500);
@@ -164,6 +239,19 @@ class ESP32Client {
    * Send acknowledgment to ESP32: POST /api/ack
    */
   public async acknowledgeDetection(detection: PestDetection): Promise<{ success: boolean; message: string }> {
+    if (this.isSimulated) {
+      if (detection.detected && detection.pest) {
+        const archived: PestDetection = {
+          ...detection,
+          acknowledged: true,
+        };
+        this.history = [archived, ...this.history.filter((h) => h.id !== archived.id)];
+        this.persistHistory();
+      }
+      this.simulatedActiveDetection = null;
+      return { success: true, message: 'Detection acknowledged and moved to History.' };
+    }
+
     const endpoint = `${this.ipAddress}/api/ack`;
     try {
       const res = await this.fetchWithTimeout(
@@ -182,7 +270,6 @@ class ESP32Client {
         3000
       );
 
-      // Record in local cache
       const archived: PestDetection = {
         ...detection,
         acknowledged: true,
@@ -202,7 +289,6 @@ class ESP32Client {
         message: json.message || 'Detection acknowledged and cleared on ESP32.',
       };
     } catch {
-      // Even if connection drops momentarily, archive locally so farmer does not lose record
       const archived: PestDetection = {
         ...detection,
         acknowledged: true,

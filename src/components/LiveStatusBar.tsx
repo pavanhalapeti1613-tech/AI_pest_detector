@@ -33,7 +33,7 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
             </h3>
             <p className="text-xs sm:text-sm text-amber-800 mt-0.5">
               Listening for acoustic sensor at <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-semibold text-amber-900">{status.ipAddress}</code> (polling <code className="font-mono">/api/latest</code> every 2s).
-              Ensure your ESP32 is powered on and connected to this WiFi network.
+              If the IP is correct, your browser may be blocking local HTTP calls from this HTTPS cloud page.
             </p>
           </div>
         </div>
@@ -51,7 +51,7 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
               className="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold bg-amber-700 text-white rounded-lg hover:bg-amber-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Settings className="w-3.5 h-3.5" />
-              Configure IP
+              Fix Connection / IP
             </button>
           )}
         </div>
