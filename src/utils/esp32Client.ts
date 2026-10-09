@@ -90,6 +90,64 @@ class ESP32Client {
   }
 
   /**
+   * Seed realistic bio-acoustic demo records for Dragonfly and Mole Cricket
+   */
+  public seedDemoData(): PestDetection[] {
+    const now = Date.now();
+    const demoItems: PestDetection[] = [
+      {
+        id: `demo-mc-1`,
+        detected: true,
+        pest: 'Mole Cricket',
+        confidence: 94,
+        timestamp: new Date(now - 8 * 60 * 1000).toISOString(),
+        db_level: 58.4,
+        frequency_hz: 2180,
+        device_id: 'ESP32-AGRI-01',
+        battery_v: 4.12,
+        acknowledged: true,
+        field_zone: 'North Field Block A',
+        remedy: 'Chlorantraniliprole 18.5% SC root-zone soil drench (0.5 ml/L water) or neem cake application',
+      },
+      {
+        id: `demo-df-1`,
+        detected: true,
+        pest: 'Dragonfly',
+        confidence: 92,
+        timestamp: new Date(now - 42 * 60 * 1000).toISOString(),
+        db_level: 41.2,
+        frequency_hz: 240,
+        device_id: 'ESP32-AGRI-01',
+        battery_v: 4.15,
+        acknowledged: true,
+        field_zone: 'Canopy Border & Irrigation Canal',
+        remedy: 'Beneficial predatory insect conserved. Do not spray chemical pesticides.',
+      },
+      {
+        id: `demo-mc-2`,
+        detected: true,
+        pest: 'Mole Cricket',
+        confidence: 88,
+        timestamp: new Date(now - 140 * 60 * 1000).toISOString(),
+        db_level: 54.0,
+        frequency_hz: 2180,
+        device_id: 'ESP32-AGRI-01',
+        battery_v: 4.18,
+        acknowledged: true,
+        field_zone: 'Seedling Nursery Greenhouse',
+        remedy: 'Deep inter-row soil aeration and moist barrier light traps deployed',
+      },
+    ];
+
+    // Prepend demo items and deduplicate
+    this.history = [...demoItems, ...this.history.filter((h) => !h.id.startsWith('demo-'))];
+    this.persistHistory();
+    this.setSimulationMode(true);
+    this.triggerTestPest('Mole Cricket', 95);
+    return this.history;
+  }
+
+  /**
    * Helper to execute fetch with timeout
    */
   private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500): Promise<Response> {

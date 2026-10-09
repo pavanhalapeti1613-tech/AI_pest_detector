@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, RefreshCw, Settings } from 'lucide-react';
+import { Wifi, RefreshCw, Settings, Sparkles } from 'lucide-react';
 import { ESP32Status, PestDetection } from '../types';
 
 interface LiveStatusBarProps {
@@ -8,12 +8,14 @@ interface LiveStatusBarProps {
   onOpenSettings?: () => void;
   onRetryConnection: () => void;
   onEnableSimulation?: () => void;
+  onAddDemoData?: () => void;
 }
 
 export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
   status,
   onOpenSettings,
   onRetryConnection,
+  onAddDemoData,
 }) => {
   if (status.isOnline) {
     return null;
@@ -37,10 +39,10 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 self-stretch sm:flex-initial shrink-0">
+        <div className="flex flex-wrap items-center gap-2 self-stretch sm:flex-initial shrink-0">
           <button
             onClick={onRetryConnection}
-            className="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold bg-white border border-amber-300 rounded-lg text-amber-900 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-initial px-3 py-2 text-xs font-bold bg-white border border-amber-300 rounded-lg text-amber-900 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Check Now
@@ -48,10 +50,19 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-bold bg-amber-700 text-white rounded-lg hover:bg-amber-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-bold bg-amber-700 text-white rounded-lg hover:bg-amber-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Settings className="w-3.5 h-3.5" />
-              Fix Connection / IP
+              Configure IP
+            </button>
+          )}
+          {onAddDemoData && (
+            <button
+              onClick={onAddDemoData}
+              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-bold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Add Demo Data
             </button>
           )}
         </div>

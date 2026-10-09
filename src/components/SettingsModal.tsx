@@ -14,6 +14,7 @@ import {
   HelpCircle,
   ExternalLink,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { ESP32Status } from '../types';
 import { ESP32_ARDUINO_SKETCH } from '../data/esp32ArduinoCode';
@@ -27,6 +28,7 @@ interface SettingsModalProps {
   onClearTestMode?: () => void;
   isTestMode?: boolean;
   standaloneHtmlCode: string;
+  onAddDemoData?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -38,6 +40,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearTestMode,
   isTestMode = false,
   standaloneHtmlCode,
+  onAddDemoData,
 }) => {
   const [ipInput, setIpInput] = useState(status.ipAddress);
   const [activeTab, setActiveTab] = useState<'connection' | 'arduino' | 'esp32code' | 'help'>('connection');
@@ -70,25 +73,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(id);
       if (res.ok) {
-        setPingResult({ success: true, message: `Connected to ESP32! HTTP ${res.status} OK` });
+        setPingResult({ success: true, message: 'Connected' });
       } else {
-        setPingResult({ success: false, message: `Device responded with HTTP ${res.status}` });
+        setPingResult({ success: false, message: 'Not Connected' });
       }
     } catch (err: unknown) {
-      if (isHttps && targetIp.startsWith('http://')) {
-        setPingResult({
-          success: false,
-          isMixedContent: true,
-          message:
-            'Browser Blocked Request (Mixed Content): Modern browsers block secure HTTPS websites from fetching local HTTP IP addresses directly without site permissions or local hosting.',
-        });
-      } else {
-        setPingResult({
-          success: false,
-          isMixedContent: false,
-          message: 'Could not connect. Ensure your ESP32 is powered on and connected to this WiFi network.',
-        });
-      }
+      setPingResult({
+        success: false,
+        isMixedContent: Boolean(isHttps && targetIp.startsWith('http://')),
+        message: 'Not Connected',
+      });
     } finally {
       setIsPinging(false);
     }
@@ -246,40 +240,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {pingResult && !isPinging && (
-                <div
-                  className={`p-3.5 rounded-xl border text-xs font-medium space-y-1.5 ${
-                    pingResult.success
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-amber-50 border-amber-300 text-amber-950'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {pingResult.success ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <span className="font-bold block text-sm">
-                        {pingResult.success ? 'ESP32 Connected!' : 'Connection Notice'}
-                      </span>
-                      <p className="mt-0.5 leading-relaxed">{pingResult.message}</p>
-                    </div>
+                <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        pingResult.success ? 'bg-emerald-500' : 'bg-rose-500'
+                      }`}
+                    />
+                    <span className="font-bold text-slate-800 text-sm">
+                      {pingResult.success ? 'Connected' : 'Not Connected'}
+                    </span>
                   </div>
-
                   {pingResult.isMixedContent && (
-                    <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
-                      <span className="text-[11px] text-amber-800">
-                        Browser blocked local HTTP call from HTTPS.
-                      </span>
-                      <button
-                        onClick={() => setActiveTab('help')}
-                        className="font-bold text-emerald-800 bg-white border border-amber-300 px-2.5 py-1 rounded text-xs hover:bg-amber-100"
-                      >
-                        How to Fix &rarr;
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setActiveTab('help')}
+                      className="font-medium text-slate-500 hover:text-slate-800 underline text-xs cursor-pointer"
+                    >
+                      Troubleshoot
+                    </button>
                   )}
+                </div>
+              )}
+
+              {/* Connection Status Message */}
+              {onAddDemoData && (
+                <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        status.isOnline ? 'bg-emerald-500' : 'bg-rose-500'
+                      }`}
+                    />
+                    <span className="font-bold text-slate-800 text-sm">
+                      {status.isOnline ? 'Connected' : 'Not Connected'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAddDemoData();
+                      onClose();
+                    }}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-lg transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Add Demo Data</span>
+                  </button>
                 </div>
               )}
 
@@ -344,17 +350,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </div>
               )}
-
-              {/* Hardware Spec Box */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 text-slate-600">
-                <div className="font-bold text-slate-900 text-sm">INMP441 Microphone Pinout:</div>
-                <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-                  <div className="bg-white p-2 rounded border">SCK &rarr; GPIO 14</div>
-                  <div className="bg-white p-2 rounded border">WS / LRCK &rarr; GPIO 15</div>
-                  <div className="bg-white p-2 rounded border">SD &rarr; GPIO 32</div>
-                  <div className="bg-white p-2 rounded border">VDD &rarr; 3.3V / L/R &rarr; GND</div>
-                </div>
-              </div>
             </div>
           )}
 

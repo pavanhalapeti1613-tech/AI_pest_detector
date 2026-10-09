@@ -7,6 +7,7 @@ interface HistoryViewProps {
   onSelectPest: (pestName: string) => void;
   onClearHistory: () => void;
   onRefreshHistory: () => void;
+  onAddDemoData?: () => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
@@ -14,6 +15,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onSelectPest,
   onClearHistory,
   onRefreshHistory,
+  onAddDemoData,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPest, setFilterPest] = useState('all');
@@ -79,7 +81,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onAddDemoData && (
+            <button
+              onClick={onAddDemoData}
+              className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              title="Add sample detection records"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              Add Demo Data
+            </button>
+          )}
+
           {history.length > 0 && (
             <>
               <button
@@ -146,6 +159,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               ? 'No detection matches your search filters. Try clearing the filter.'
               : 'Your field logs are clear. Acknowledged pest detections from the ESP32 will automatically record here.'}
           </p>
+          {onAddDemoData && !searchTerm && filterPest === 'all' && (
+            <div className="pt-4">
+              <button
+                onClick={onAddDemoData}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl transition-colors cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-200" />
+                Add Demo Incidents
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs divide-y divide-slate-100">

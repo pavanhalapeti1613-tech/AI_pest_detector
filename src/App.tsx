@@ -11,7 +11,14 @@ import { esp32 } from './utils/esp32Client';
 import { soundAlert } from './utils/audioAlert';
 import { STANDALONE_HTML } from './data/standaloneHtml';
 import { PestDetection, ESP32Status } from './types';
-import { History, BookOpen, Cpu, ArrowRight, Sparkles, Bug } from 'lucide-react';
+import {
+  History,
+  BookOpen,
+  ArrowRight,
+  Sparkles,
+  Bug,
+  Cpu,
+} from 'lucide-react';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'detail' | 'history' | 'catalog'>('home');
@@ -150,6 +157,15 @@ export default function App() {
     pollDevice();
   };
 
+  // Add demo data handler
+  const handleAddDemoData = () => {
+    const updatedHistory = esp32.seedDemoData();
+    setHistory([...updatedHistory]);
+    soundAlert.playPestAlert('high');
+    showToast('Demo data added: Sample field incidents & active Mole Cricket alert loaded!');
+    pollDevice();
+  };
+
   // Clear history logs
   const handleClearHistory = () => {
     esp32.clearHistory();
@@ -172,6 +188,7 @@ export default function App() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onAddDemoData={handleAddDemoData}
         hasActiveAlert={hasActiveAlert}
       />
 
@@ -191,6 +208,7 @@ export default function App() {
           currentDetection={currentDetection}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onRetryConnection={pollDevice}
+          onAddDemoData={handleAddDemoData}
         />
 
         {/* VIEW 1: HOME DASHBOARD */}
@@ -202,47 +220,25 @@ export default function App() {
               onViewDetails={handleViewPestDetails}
             />
 
-            {/* Quick Action Cards for Farmers */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div
-                onClick={() => setCurrentView('catalog')}
-                className="bg-white border-2 border-slate-200 hover:border-emerald-300 rounded-2xl p-5 shadow-2xs hover:shadow-sm transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">
-                      Pest Treatment & Dosage Guide
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Recommended sprays, organic alternatives, and safety precautions
-                    </p>
-                  </div>
+            {/* Quick Action Card for Farmers */}
+            <div
+              onClick={() => setCurrentView('catalog')}
+              className="bg-white border-2 border-slate-200 hover:border-emerald-300 rounded-2xl p-5 shadow-2xs hover:shadow-sm transition-all cursor-pointer flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-6 h-6" />
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition-all" />
-              </div>
-
-              <div
-                onClick={() => setIsSettingsOpen(true)}
-                className="bg-white border-2 border-slate-200 hover:border-emerald-300 rounded-2xl p-5 shadow-2xs hover:shadow-sm transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <Cpu className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">
-                      ESP32 Connection & Hardware Setup
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Configure WiFi IP ({espStatus.ipAddress}), INMP441 wiring, or LittleFS firmware
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Pest Treatment & Dosage Guide
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Recommended sprays, organic alternatives, and safety precautions
+                  </p>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-1 transition-all" />
               </div>
+              <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition-all" />
             </div>
 
             {/* Detection History Preview Section */}
@@ -347,6 +343,7 @@ export default function App() {
             onSelectPest={handleViewPestDetails}
             onClearHistory={handleClearHistory}
             onRefreshHistory={loadHistory}
+            onAddDemoData={handleAddDemoData}
           />
         )}
 
@@ -366,33 +363,55 @@ export default function App() {
         onClearTestMode={handleClearTestMode}
         isTestMode={espStatus.isSimulated}
         standaloneHtmlCode={STANDALONE_HTML}
+        onAddDemoData={handleAddDemoData}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500 mt-12">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Professional Vertical Agricultural Tech Footer */}
+      <footer className="border-t border-slate-200 bg-white py-12 mt-16 text-slate-600 text-xs">
+        <div className="max-w-2xl mx-auto px-4 flex flex-col items-center text-center space-y-4">
+          {/* Brand & Bio-Acoustic Title */}
           <div className="flex items-center gap-2.5">
-            <AgriLogo className="w-6 h-6" size={24} />
-            <span className="font-extrabold text-slate-900">AI Pest Detector</span>
-            <span>·</span>
-            <span className="text-slate-600">Smart Agricultural Acoustic Protection</span>
+            <AgriLogo className="w-8 h-8" size={32} />
+            <span className="text-base font-extrabold text-slate-900 tracking-tight">
+              AI Pest Detector
+            </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="hover:text-emerald-700 underline cursor-pointer"
-            >
-              Hardware Wiring & LittleFS
-            </button>
-            <a
-              href="/esp32_standalone.html"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-emerald-700 underline"
-            >
-              Open Standalone HTML
-            </a>
+          {/* Mission & Purpose */}
+          <p className="text-slate-500 leading-relaxed text-xs max-w-md">
+            Real-time bio-acoustic field surveillance protecting crop yields through smart microphone frequency recognition and ESP32 IoT sensors.
+          </p>
+
+          {/* Sensor & Hardware Indicators */}
+          <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Sensors Active
+            </span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <Cpu className="w-3 h-3 text-slate-500" />
+              ESP32 I2S
+            </span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              INMP441 Microphone
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div className="w-16 h-px bg-slate-200 my-1"></div>
+
+          {/* Copyright & Technical Edge Specs */}
+          <div className="flex flex-col items-center space-y-1.5 text-[11px] text-slate-400">
+            <div>
+              <span>&copy; {new Date().getFullYear()} AI Pest Detector. Smart Agricultural IoT System.</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 text-slate-500">
+              <span>ESP32 WiFi Connected</span>
+              <span>•</span>
+              <span>Autonomous Edge Detection</span>
+              <span>•</span>
+              <span>Dragonfly & Mole Cricket Acoustics</span>
+            </div>
           </div>
         </div>
       </footer>
