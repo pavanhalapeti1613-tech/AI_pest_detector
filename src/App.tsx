@@ -6,6 +6,7 @@ import { PestDetailView } from './components/PestDetailView';
 import { HistoryView } from './components/HistoryView';
 import { PestGuideCatalog } from './components/PestGuideCatalog';
 import { SettingsModal } from './components/SettingsModal';
+import { AgriLogo } from './components/AgriLogo';
 import { esp32 } from './utils/esp32Client';
 import { soundAlert } from './utils/audioAlert';
 import { STANDALONE_HTML } from './data/standaloneHtml';
@@ -370,10 +371,11 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500 mt-12">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">AgriSound</span>
+          <div className="flex items-center gap-2.5">
+            <AgriLogo className="w-6 h-6" size={24} />
+            <span className="font-extrabold text-slate-900">AI Pest Detector</span>
             <span>·</span>
-            <span>ESP32 + INMP441 Acoustic Crop Protection</span>
+            <span className="text-slate-600">Smart Agricultural Acoustic Protection</span>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-medium text-slate-600">

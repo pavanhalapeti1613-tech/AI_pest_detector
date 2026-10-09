@@ -1,6 +1,7 @@
 import React from 'react';
 import { History as HistoryIcon, Home, BookOpen } from 'lucide-react';
 import { ESP32Status } from '../types';
+import { AgriLogo } from './AgriLogo';
 
 interface HeaderProps {
   currentView: 'home' | 'detail' | 'history' | 'catalog';
@@ -20,29 +21,33 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-xs">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-        {/* Zone 1: Brand Wordmark */}
+        {/* Zone 1: Agricultural Brand Logo & Wordmark */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-2.5 text-left group focus:outline-none"
+            className="flex items-center gap-3 text-left group focus:outline-none cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
-              {/* Clean agricultural sprout + acoustic soundwave icon */}
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a10 10 0 0 1 10 10c0 5.5-4.5 10-10 10S2 17.5 2 12A10 10 0 0 1 12 2Z" fill="currentColor" fillOpacity="0.15" />
-                <path d="M12 18v-7" />
-                <path d="M9 13c1.5-2 3-2 3-2s1.5 0 3 2" />
-                <path d="M7 16c2.5-3.5 5-3.5 5-3.5s2.5 0 5 3.5" />
-              </svg>
+            <div className="relative transition-transform duration-200 group-hover:scale-105">
+              <AgriLogo className="w-10 h-10 drop-shadow-xs" />
+              {hasActiveAlert && (
+                <span
+                  className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white animate-ping"
+                  title="Active pest detected"
+                />
+              )}
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
-                AgriSound
-                {hasActiveAlert && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" title="Active pest alert" />
-                )}
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-extrabold tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">
+                  AI Pest Detector
+                </span>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 tracking-wide uppercase">
+                  Agri-IoT
+                </span>
+              </div>
+              <span className="block text-xs font-medium text-slate-500 -mt-0.5">
+                ESP32 Smart Acoustic Crop Shield
               </span>
-              <span className="block text-xs font-medium text-slate-500 -mt-0.5">ESP32 Acoustic Field Monitor</span>
             </div>
           </button>
         </div>

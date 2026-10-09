@@ -1,5 +1,5 @@
 {
-  "name": "AgriSound - ESP32 Field Pest Acoustic Monitor",
+  "name": "AI Pest Detector - Smart Agricultural Acoustic Monitor",
   "description": "Real-time acoustic pest detection and crop protection assistant for farmers using ESP32 with INMP441 microphone.",
   "requestFramePermissions": [],
   "majorCapabilities": [

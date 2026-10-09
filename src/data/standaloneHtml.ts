@@ -3,7 +3,8 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AgriSound - ESP32 Field Pest Acoustic Monitor</title>
+  <title>AI Pest Detector - Smart Agricultural Acoustic Monitor</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <!-- Tailwind CSS CDN for zero-build ESP32 LittleFS deployment -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,12 +29,12 @@ export const STANDALONE_HTML = `<!DOCTYPE html>
   <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-xs">
-          🌾
+        <div class="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold text-lg shadow-xs ring-1 ring-emerald-500">
+          🌱
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            AgriSound
+            AI Pest Detector
             <span id="header-pulse" class="hidden w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
           </h1>
           <p class="text-xs font-semibold text-slate-500 -mt-0.5">ESP32 Acoustic Field Monitor</p>
