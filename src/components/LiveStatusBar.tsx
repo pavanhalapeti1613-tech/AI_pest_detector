@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, RefreshCw, Settings, Sparkles } from 'lucide-react';
+import { Wifi, RefreshCw, Settings, Sparkles, Usb } from 'lucide-react';
 import { ESP32Status, PestDetection } from '../types';
 
 interface LiveStatusBarProps {
@@ -9,6 +9,7 @@ interface LiveStatusBarProps {
   onRetryConnection: () => void;
   onEnableSimulation?: () => void;
   onAddDemoData?: () => void;
+  onConnectUsb?: () => void;
 }
 
 export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
@@ -16,9 +17,28 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
   onOpenSettings,
   onRetryConnection,
   onAddDemoData,
+  onConnectUsb,
 }) => {
   if (status.isOnline) {
-    return null;
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-950 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="font-bold text-slate-800">
+            ESP32 Sensor Active & Connected
+          </span>
+          <span className="text-slate-500 hidden sm:inline">
+            · Continuous bio-acoustic surveillance ({status.ipAddress})
+          </span>
+        </div>
+        <button
+          onClick={onOpenSettings}
+          className="text-emerald-800 hover:text-emerald-950 font-bold hover:underline cursor-pointer"
+        >
+          Manage Connection
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -34,18 +54,27 @@ export const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
               Ready for ESP32 Connection
             </h3>
             <p className="text-xs sm:text-sm text-amber-800 mt-0.5">
-              Listening for acoustic sensor at <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-semibold text-amber-900">{status.ipAddress}</code> (polling <code className="font-mono">/api/latest</code> every 2s).
-              If the IP is correct, your browser may be blocking local HTTP calls from this HTTPS cloud page.
+              Listening for acoustic sensor at <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-semibold text-amber-900">{status.ipAddress}</code>.
+              Connect via WiFi IP, direct USB cable, or ESP32 Cloud Push.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-stretch sm:flex-initial shrink-0">
+          {onConnectUsb && (
+            <button
+              onClick={onConnectUsb}
+              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-bold bg-blue-700 hover:bg-blue-800 text-white rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <Usb className="w-3.5 h-3.5" />
+              Connect USB
+            </button>
+          )}
           <button
             onClick={onRetryConnection}
             className="flex-1 sm:flex-initial px-3 py-2 text-xs font-bold bg-white border border-amber-300 rounded-lg text-amber-900 hover:bg-amber-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Check Now
+            Check IP
           </button>
           {onOpenSettings && (
             <button

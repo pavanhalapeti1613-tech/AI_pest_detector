@@ -12,12 +12,13 @@ import {
   Wifi,
   FileCode,
   HelpCircle,
-  ExternalLink,
   ShieldAlert,
   Sparkles,
+  Usb,
 } from 'lucide-react';
-import { ESP32Status } from '../types';
+import { ESP32Status, PestDetection } from '../types';
 import { ESP32_ARDUINO_SKETCH } from '../data/esp32ArduinoCode';
+import { esp32 } from '../utils/esp32Client';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ interface SettingsModalProps {
   isTestMode?: boolean;
   standaloneHtmlCode: string;
   onAddDemoData?: () => void;
+  onDetectionReceived?: (data: PestDetection) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -41,12 +43,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isTestMode = false,
   standaloneHtmlCode,
   onAddDemoData,
+  onDetectionReceived,
 }) => {
   const [ipInput, setIpInput] = useState(status.ipAddress);
-  const [activeTab, setActiveTab] = useState<'connection' | 'arduino' | 'esp32code' | 'help'>('connection');
+  const [activeTab, setActiveTab] = useState<'connection' | 'usb' | 'arduino' | 'esp32code' | 'help'>('connection');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedArduino, setCopiedArduino] = useState(false);
+  const [copiedPushUrl, setCopiedPushUrl] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
+  const [isSerialConnecting, setIsSerialConnecting] = useState(false);
   const [pingResult, setPingResult] = useState<{
     success: boolean;
     isMixedContent?: boolean;
@@ -56,28 +61,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const pushUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/esp32/push` : '/api/esp32/push';
+  const isSerialConnected = esp32.isSerialConnected();
+  const isOnline = status.isOnline || isSerialConnected || (pingResult?.success ?? false);
 
-  const handleSaveIp = (e: React.FormEvent) => {
+  const handleSaveIp = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateIp(ipInput);
-    testPing(ipInput);
+    const cleanIp = esp32.normalizeIp(ipInput);
+    setIpInput(cleanIp);
+    onUpdateIp(cleanIp);
+    await testPing(cleanIp);
   };
 
   const testPing = async (targetIp: string) => {
     setIsPinging(true);
     setPingResult(null);
     try {
-      const url = targetIp.replace(/\/+$/, '') + '/api/latest';
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 2500);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(id);
-      if (res.ok) {
+      const result = await esp32.testConnection(targetIp);
+      if (result.success) {
         setPingResult({ success: true, message: 'Connected' });
+        if (result.data && onDetectionReceived) {
+          onDetectionReceived(result.data);
+        }
       } else {
-        setPingResult({ success: false, message: 'Not Connected' });
+        setPingResult({
+          success: false,
+          isMixedContent: result.isMixedContent,
+          message: 'Not Connected',
+        });
       }
-    } catch (err: unknown) {
+    } catch {
       setPingResult({
         success: false,
         isMixedContent: Boolean(isHttps && targetIp.startsWith('http://')),
@@ -86,6 +99,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } finally {
       setIsPinging(false);
     }
+  };
+
+  const handleConnectSerial = async () => {
+    setIsSerialConnecting(true);
+    try {
+      const res = await esp32.connectSerial();
+      if (res.success) {
+        setPingResult({ success: true, message: 'Connected' });
+        if (onDetectionReceived) {
+          esp32.addSerialListener((det) => onDetectionReceived(det));
+        }
+      } else {
+        setPingResult({ success: false, message: 'Not Connected' });
+      }
+    } catch {
+      setPingResult({ success: false, message: 'Not Connected' });
+    } finally {
+      setIsSerialConnecting(false);
+    }
+  };
+
+  const handleDisconnectSerial = async () => {
+    await esp32.disconnectSerial();
+    setPingResult(null);
   };
 
   const handleCopyCode = () => {
@@ -98,6 +135,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     navigator.clipboard.writeText(ESP32_ARDUINO_SKETCH);
     setCopiedArduino(true);
     setTimeout(() => setCopiedArduino(false), 2000);
+  };
+
+  const handleCopyPushUrl = () => {
+    navigator.clipboard.writeText(pushUrl);
+    setCopiedPushUrl(true);
+    setTimeout(() => setCopiedPushUrl(false), 2000);
   };
 
   const handleDownloadStandaloneHtml = () => {
@@ -123,7 +166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">ESP32 Hardware & Connection</h2>
-              <p className="text-xs text-slate-500 font-medium">WiFi IP, Browser Security & Arduino Code</p>
+              <p className="text-xs text-slate-500 font-medium">WiFi IP, Direct USB Serial & Arduino Code</p>
             </div>
           </div>
 
@@ -146,6 +189,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             WiFi & IP Setup
+          </button>
+          <button
+            onClick={() => setActiveTab('usb')}
+            className={`py-3 px-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'usb'
+                ? 'border-emerald-600 text-emerald-800'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Usb className="w-3.5 h-3.5 text-blue-600" />
+            USB Cable (Instant)
           </button>
           <button
             onClick={() => setActiveTab('help')}
@@ -188,106 +242,131 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'connection' && (
             <div className="space-y-4">
               {/* Mixed Content Warning Alert (Shown if on HTTPS) */}
-              {isHttps && (
+              {isHttps && !isOnline && (
                 <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-950 space-y-1">
                   <div className="font-bold flex items-center gap-1.5 text-amber-900">
                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                    Important: Browser Mixed Content Note
+                    Connecting to local WiFi ESP32
                   </div>
                   <p className="text-amber-800 leading-relaxed">
-                    Because this preview runs over <strong>HTTPS</strong>, web browsers block requests to local <strong>HTTP</strong> IPs (<code className="bg-amber-100 px-1 rounded font-mono">{status.ipAddress}</code>) unless you allow insecure content or use the standalone HTML.
+                    If this cloud dashboard cannot reach local IP <code className="bg-amber-100 px-1 rounded font-mono font-semibold">{status.ipAddress}</code> directly due to browser mixed-content restrictions, you can connect via <strong>USB Cable</strong> (zero network issues) or download the standalone HTML.
                   </p>
-                  <button
-                    onClick={() => setActiveTab('help')}
-                    className="text-amber-900 font-bold underline cursor-pointer mt-1 block"
-                  >
-                    View 3 Simple Solutions to Connect &rarr;
-                  </button>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('usb')}
+                      className="text-blue-800 font-bold underline cursor-pointer"
+                    >
+                      Use USB Cable (Instant) &rarr;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('help')}
+                      className="text-amber-900 font-bold underline cursor-pointer"
+                    >
+                      Troubleshooting Guide &rarr;
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* IP Input Form */}
               <form onSubmit={handleSaveIp} className="space-y-3">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  ESP32 IP Address
+                  ESP32 Target IP or Local Endpoint
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={ipInput}
                     onChange={(e) => setIpInput(e.target.value)}
-                    placeholder="http://192.168.1.50"
+                    placeholder="192.168.1.50 or http://192.168.1.50"
                     className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-sm focus:outline-emerald-600 focus:bg-white text-slate-900"
                   />
                   <button
                     type="submit"
-                    className="px-5 py-2.5 bg-emerald-700 text-white font-bold text-sm rounded-xl hover:bg-emerald-800 transition-colors cursor-pointer shrink-0"
+                    disabled={isPinging}
+                    className="px-5 py-2.5 bg-emerald-700 text-white font-bold text-sm rounded-xl hover:bg-emerald-800 transition-colors cursor-pointer shrink-0 flex items-center gap-2"
                   >
-                    Save & Ping
+                    {isPinging ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                    <span>Save & Connect</span>
                   </button>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Default: <code className="font-mono text-slate-700 font-semibold">{status.ipAddress}</code>. The app polls <code className="font-mono text-slate-700 font-semibold">GET /api/latest</code> every 2 seconds.
+                  Target: <code className="font-mono text-slate-700 font-semibold">{status.ipAddress}</code>. The app checks candidate endpoints (<code className="font-mono">/api/latest</code>, <code className="font-mono">/latest</code>, <code className="font-mono">/data</code>, <code className="font-mono">/</code>) automatically.
                 </p>
               </form>
 
-              {/* Ping Result */}
+              {/* Ping in progress */}
               {isPinging && (
                 <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100 p-3 rounded-xl">
                   <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
-                  <span>Testing connection to {ipInput}...</span>
+                  <span>Testing connection across endpoints to {ipInput}...</span>
                 </div>
               )}
 
-              {pingResult && !isPinging && (
-                <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                        pingResult.success ? 'bg-emerald-500' : 'bg-rose-500'
-                      }`}
-                    />
-                    <span className="font-bold text-slate-800 text-sm">
-                      {pingResult.success ? 'Connected' : 'Not Connected'}
-                    </span>
-                  </div>
-                  {pingResult.isMixedContent && (
+              {/* Single Connection Status Message Box (White text, only shows connected or not connected) */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                      isOnline ? 'bg-emerald-400' : 'bg-rose-400'
+                    }`}
+                  />
+                  <span className="font-bold text-white text-sm">
+                    {isOnline ? 'Connected' : 'Not Connected'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {!isOnline && (
                     <button
-                      onClick={() => setActiveTab('help')}
-                      className="font-medium text-slate-500 hover:text-slate-800 underline text-xs cursor-pointer"
+                      type="button"
+                      onClick={() => setActiveTab('usb')}
+                      className="px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                     >
-                      Troubleshoot
+                      <Usb className="w-3 h-3 text-blue-400" />
+                      <span>Try USB</span>
+                    </button>
+                  )}
+                  {onAddDemoData && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddDemoData();
+                        onClose();
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-white" />
+                      <span>Add Demo Data</span>
                     </button>
                   )}
                 </div>
-              )}
+              </div>
 
-              {/* Connection Status Message */}
-              {onAddDemoData && (
-                <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                        status.isOnline ? 'bg-emerald-500' : 'bg-rose-500'
-                      }`}
-                    />
-                    <span className="font-bold text-slate-800 text-sm">
-                      {status.isOnline ? 'Connected' : 'Not Connected'}
-                    </span>
-                  </div>
+              {/* Cloud Ingestion Push Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">
+                    ESP32 Direct Cloud Push Webhook
+                  </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      onAddDemoData();
-                      onClose();
-                    }}
-                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-lg transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={handleCopyPushUrl}
+                    className="text-emerald-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Add Demo Data</span>
+                    {copiedPushUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedPushUrl ? 'Copied' : 'Copy URL'}</span>
                   </button>
                 </div>
-              )}
+                <p className="text-slate-600 text-[11px]">
+                  Your ESP32 can send detections directly via HTTP POST to this endpoint from any WiFi or SIM card hotspot without any router port forwarding:
+                </p>
+                <div className="bg-white border border-slate-300 p-2 rounded-lg font-mono text-[11px] text-slate-800 truncate select-all">
+                  {pushUrl}
+                </div>
+              </div>
 
               {/* Acoustic Detection Test Panel (Only Mole Cricket & Dragonfly) */}
               {onTriggerTestPest && (
@@ -353,84 +432,145 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Fix Connection Error (Browser Mixed Content Guide) */}
+          {/* TAB 2: USB Cable Direct Serial */}
+          {activeTab === 'usb' && (
+            <div className="space-y-4 text-xs">
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-950 text-sm flex items-center gap-1.5">
+                    <Usb className="w-4 h-4 text-blue-700" />
+                    Direct USB Connection (Web Serial API)
+                  </span>
+                  <span className="bg-blue-200 text-blue-900 text-[10px] font-bold px-2 py-0.5 rounded">
+                    100% RELIABLE & ZERO SETUP
+                  </span>
+                </div>
+                <p className="text-blue-900 leading-relaxed">
+                  Connect your ESP32 board directly to your computer using a USB data cable. The browser will read real-time bio-acoustic telemetry straight from the microcontroller serial stream at 115200 baud with zero WiFi configuration, no IP needed, and no browser mixed-content restrictions!
+                </p>
+
+                <div className="pt-2 flex items-center gap-3">
+                  {!isSerialConnected ? (
+                    <button
+                      type="button"
+                      onClick={handleConnectSerial}
+                      disabled={isSerialConnecting}
+                      className="px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                    >
+                      {isSerialConnecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Usb className="w-4 h-4" />}
+                      <span>Select USB Port & Connect</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Connected via USB (115200 baud)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectSerial}
+                        className="px-3 py-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold cursor-pointer transition-colors"
+                      >
+                        Disconnect USB
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">
+                  How USB Streaming Works
+                </span>
+                <ol className="list-decimal pl-5 space-y-1 text-slate-600 font-medium">
+                  <li>Plug your ESP32 into any USB port on your PC or Mac.</li>
+                  <li>Click <strong>Select USB Port & Connect</strong> above.</li>
+                  <li>Select your ESP32 device in the browser prompt (usually labelled CP2102, CH340, or USB JTAG).</li>
+                  <li>The dashboard immediately streams acoustic data and alerts in real-time!</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Fix Connection Error (Browser Mixed Content Guide) */}
           {activeTab === 'help' && (
             <div className="space-y-4 text-xs text-slate-700 leading-relaxed">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
                 <h3 className="font-bold text-sm text-amber-950 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-                  Why is it showing this error with the correct IP?
+                  Why does an IP show "Not Connected"?
                 </h3>
                 <p className="text-amber-900">
-                  This application is currently running on a secure cloud URL starting with <strong>HTTPS</strong>. For security, modern web browsers (Chrome, Edge, Safari) automatically block web pages from directly calling unencrypted local IP addresses (like <code className="bg-amber-100 px-1 rounded font-mono">http://192.168.1.50</code>).
+                  This dashboard is hosted on a secure cloud address starting with <strong>HTTPS</strong>. For safety, modern web browsers prevent web pages from silently contacting unencrypted private local network IPs (<code className="bg-amber-100 px-1 rounded font-mono font-bold text-amber-950">http://192.168.x.x</code>).
                 </p>
               </div>
 
               <h4 className="font-bold text-slate-900 text-sm pt-1">
-                Choose One of These 3 Solutions:
+                3 Instant Solutions to Connect:
               </h4>
 
               {/* Solution 1 */}
               <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-emerald-950 text-sm">
-                    Option 1 (Recommended): Run Standalone HTML
+                    Option 1: Direct USB Cable (Easiest)
                   </span>
                   <span className="bg-emerald-200 text-emerald-900 text-[10px] font-bold px-2 py-0.5 rounded">
-                    EASIEST & ZERO-RESTRICTION
+                    RECOMMENDED
                   </span>
                 </div>
                 <p className="text-emerald-900">
-                  Download the self-contained single-file HTML and open it directly from your computer or upload it to your ESP32’s LittleFS storage. When opened locally, there is <strong>NO HTTPS Mixed-Content block</strong>!
+                  Switch to the <strong>USB Cable (Instant)</strong> tab and connect your board with a USB cord. It works 100% reliably in Chrome and Edge with no WiFi setup needed!
                 </p>
                 <div className="pt-1">
                   <button
-                    onClick={handleDownloadStandaloneHtml}
+                    onClick={() => setActiveTab('usb')}
                     className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg flex items-center gap-2 cursor-pointer shadow-xs"
                   >
-                    <Download className="w-4 h-4" />
-                    Download index.html for Local / ESP32 Use
+                    <Usb className="w-4 h-4" />
+                    Open USB Cable Connection
                   </button>
                 </div>
               </div>
 
               {/* Solution 2 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <span className="font-bold text-slate-900 text-sm block">
-                  Option 2: Allow Insecure Content in Your Browser (10 Seconds)
+                  Option 2: Standalone Local HTML (No HTTPS restrictions)
                 </span>
                 <p className="text-slate-600">
-                  If you want to keep viewing this cloud dashboard:
+                  Download the self-contained single-file HTML and open it directly from your computer:
                 </p>
-                <ol className="list-decimal pl-5 space-y-1 text-slate-700 font-medium">
-                  <li>Click the <strong>Lock / Settings icon 🔒</strong> to the left of the URL address bar.</li>
-                  <li>Click <strong>Site settings</strong>.</li>
-                  <li>Scroll to <strong>Insecure content</strong> and change from <em>Block</em> to <strong>Allow</strong>.</li>
-                  <li>Reload this page. The browser will now allow connecting to <code className="font-mono font-bold text-slate-900">http://192.168.1.50</code>!</li>
-                </ol>
+                <button
+                  onClick={handleDownloadStandaloneHtml}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  Download index.html for Local Use
+                </button>
               </div>
 
               {/* Solution 3 */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
                 <span className="font-bold text-slate-900 text-sm block">
-                  Option 3: Enable CORS on your ESP32 Code
+                  Option 3: Allow Insecure Content in Chrome / Edge (10 Seconds)
                 </span>
-                <p className="text-slate-600">
-                  Ensure your ESP32 Arduino sketch has CORS headers enabled in the HTTP response.
-                </p>
-                <pre className="bg-slate-900 text-slate-100 p-2.5 rounded text-[11px] font-mono overflow-x-auto">
-                  <code>{`server.enableCORS(true); // Call in setup()`}</code>
-                </pre>
+                <ol className="list-decimal pl-5 space-y-1 text-slate-700 font-medium">
+                  <li>Click the <strong>Lock / Sliders icon</strong> to the left of the URL address bar.</li>
+                  <li>Click <strong>Site settings</strong>.</li>
+                  <li>Scroll to <strong>Insecure content</strong> and change from <em>Block</em> to <strong>Allow</strong>.</li>
+                  <li>Reload this page. The browser will now allow connecting to your local ESP32 IP!</li>
+                </ol>
               </div>
             </div>
           )}
 
-          {/* TAB 3: Full Arduino Sketch */}
+          {/* TAB 4: Full Arduino Sketch */}
           {activeTab === 'arduino' && (
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900">
                 <span className="font-bold block mb-1">Production-Ready ESP32 Firmware:</span>
-                This Arduino C++ sketch connects to WiFi, configures the INMP441 I2S microphone, and provides the REST endpoints (<code className="font-mono">/api/latest</code>, <code className="font-mono">/api/history</code>, <code className="font-mono">/api/ack</code>) with CORS headers enabled!
+                This sketch configures the INMP441 I2S microphone, provides local REST endpoints with CORS headers, streams to USB serial at 115200 baud, and supports optional cloud push!
               </div>
 
               <div className="flex items-center gap-2">
@@ -449,7 +589,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: LittleFS HTML */}
+          {/* TAB 5: LittleFS HTML */}
           {activeTab === 'esp32code' && (
             <div className="space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950">

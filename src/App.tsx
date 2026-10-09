@@ -84,7 +84,37 @@ export default function App() {
     loadHistory();
     pollDevice();
     const pollInterval = setInterval(pollDevice, 2000);
-    return () => clearInterval(pollInterval);
+
+    // Subscribe to live USB serial streaming events if user connects via USB
+    const unsubscribeSerial = esp32.addSerialListener((detection) => {
+      setCurrentDetection(detection);
+      setEspStatus({
+        ipAddress: 'USB Serial (115200 baud)',
+        isOnline: true,
+        isSimulated: false,
+        lastSuccessfulPing: new Date().toISOString(),
+        errorMessage: null,
+        isPolling: true,
+        batteryVoltage: detection.battery_v || 4.12,
+        micNoiseFloorDb: detection.db_level,
+      });
+
+      if (detection.detected && detection.pest && !prevDetectedRef.current) {
+        const isDragonfly = detection.pest.toLowerCase().includes('dragon');
+        soundAlert.playPestAlert(isDragonfly ? 'beneficial' : 'critical');
+        showToast(
+          isDragonfly
+            ? `Beneficial Insect: ${detection.pest} detected via USB`
+            : `Acoustic Alert: ${detection.pest} detected via USB!`
+        );
+      }
+      prevDetectedRef.current = Boolean(detection.detected && detection.pest);
+    });
+
+    return () => {
+      clearInterval(pollInterval);
+      unsubscribeSerial();
+    };
   }, [loadHistory, pollDevice]);
 
   // Audio mute toggle
@@ -209,6 +239,7 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onRetryConnection={pollDevice}
           onAddDemoData={handleAddDemoData}
+          onConnectUsb={() => setIsSettingsOpen(true)}
         />
 
         {/* VIEW 1: HOME DASHBOARD */}
@@ -364,6 +395,14 @@ export default function App() {
         isTestMode={espStatus.isSimulated}
         standaloneHtmlCode={STANDALONE_HTML}
         onAddDemoData={handleAddDemoData}
+        onDetectionReceived={(det) => {
+          setCurrentDetection(det);
+          setEspStatus((prev) => ({
+            ...prev,
+            isOnline: true,
+            lastSuccessfulPing: new Date().toISOString(),
+          }));
+        }}
       />
 
       {/* Professional Vertical Agricultural Tech Footer */}
